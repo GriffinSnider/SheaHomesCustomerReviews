@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from collections import Counter
 import streamlit.components.v1 as components
+from streamlit_scroll_to_top import scroll_to_here
 import re
 import warnings
 
@@ -738,4 +739,5 @@ elif page == PAGES[7]:
         ds = r["date"].strftime("%b %d, %Y") if pd.notna(r["date"]) else "N/A"
         st.markdown(f"**{stars_display}** &nbsp;&nbsp; {r['location']} &nbsp;&nbsp; {ds} &nbsp;&nbsp; <span style='color:{scol};font-weight:600'>{r['vader_label']} ({r['vader_compound']:+.2f})</span>", unsafe_allow_html=True)
         st.markdown(f"> {str(r['review_text'])[:600]}{'...' if len(str(r['review_text']))>600 else ''}"); st.markdown("---")
+
 
