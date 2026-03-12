@@ -238,6 +238,8 @@ if st.session_state.get("scroll_top", False):
     scroll_to_here(0, key=f"top_{page}")
     st.session_state.scroll_top = False
 
+st.markdown("<div style='height: 55px;'></div>", unsafe_allow_html=True)
+
 
 # ===================================================================
 if page == PAGES[0]:
@@ -739,5 +741,6 @@ elif page == PAGES[7]:
         ds = r["date"].strftime("%b %d, %Y") if pd.notna(r["date"]) else "N/A"
         st.markdown(f"**{stars_display}** &nbsp;&nbsp; {r['location']} &nbsp;&nbsp; {ds} &nbsp;&nbsp; <span style='color:{scol};font-weight:600'>{r['vader_label']} ({r['vader_compound']:+.2f})</span>", unsafe_allow_html=True)
         st.markdown(f"> {str(r['review_text'])[:600]}{'...' if len(str(r['review_text']))>600 else ''}"); st.markdown("---")
+
 
 
