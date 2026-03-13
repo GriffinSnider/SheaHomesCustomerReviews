@@ -1,4 +1,4 @@
-﻿import streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -27,7 +27,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@400;600;700&display=swap');
     .stApp { background-color: #f7f8fa; }
-    .block-container { padding-top: 1rem !important; }
+    .block-container { padding-top: 3rem !important; }
     html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
     h1, h2, h3 { font-family: 'Source Serif 4', Georgia, serif !important; color: #0e2f44; }
     h1 { font-size: 2.2rem !important; border-bottom: 3px solid #d4a843; padding-bottom: 0.4rem; margin-bottom: 1rem !important; }
@@ -238,22 +238,22 @@ if st.session_state.get("scroll_top", False):
     scroll_to_here(0, key=f"top_{page}")
     st.session_state.scroll_top = False
 
-st.markdown("<div style='height: 55px;'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 
 
 # ===================================================================
 if page == PAGES[0]:
     st.title("Shea Homes Customer Review Project")
-    explain("This project takes 2,039 customer reviews from NewHomeSource and runs them through a series of AI and data analysis tools. Instead of someone reading through every review one by one, the computer reads all of them in seconds and pulls out the patterns. It figures out which reviews are happy, which are unhappy, what topics keep coming up, which markets are doing well, and where the biggest opportunities for improvement are. <br> <br> This report uses natural language processing tools to read and analyze Shea Homes customer reviews. It: (1) calculates key statistics, (2) understands the emotional tone of each review, (3) finds patterns across time, geography, and rating categories, and (4) surfaces the specific topics customers care about most.")
+    explain("This project analyzes 2,039 customer reviews of Shea Homes collected from NewHomeSource.com. NewHomeSource is a review platform where verified homebuyers rate their builder after closing. Each review includes an overall star rating (1-5) plus four sub-ratings: Quality, Trustworthiness, Value, and Responsiveness. Buyers also write open-ended comments describing their experience. This dataset contains reviews for Shea Homes collected between September 2020 and March 2026, covering 11 markets across Arizona, California, Colorado, Nevada, North Carolina, Texas, Washington, and more. <br> <br> Reading 2,039 reviews manually would take weeks. Even then, it would be hard to spot patterns consistently, like which markets are struggling, what topics keep coming up in negative reviews, or which customers might be at risk of leaving bad word-of-mouth. This project automates that work using a multi-method Natural Language Processing (NLP) framework. The pipeline includes: (1) sentiment classification using VADER (Valence Aware Dictionary and sEntiment Reasoner), a rule-based model tuned for customer review text; (2) topic extraction using TF-IDF (Term Frequency-Inverse Document Frequency) vectorization and LDA (Latent Dirichlet Allocation), which surface recurring themes without predefined categories; (3) predictive modeling using machine learning classifiers to flag at-risk reviews; and (4) contextual analysis using a locally-deployed large language model (LLaMA 3.2 via Ollama) that reads individual reviews and generates recommendations.")
+
     c1,c2,c3,c4,c5,c6 = st.columns(6)
     c1.metric("Total Reviews", f"{len(fdf):,}"); c2.metric("Avg Rating", f"{fdf['total_score'].mean():.2f}"); c3.metric("Positive", f"{(fdf['vader_label']=='Positive').mean():.0%}")
     c4.metric("Negative", f"{(fdf['vader_label']=='Negative').mean():.0%}"); c5.metric("At-Risk", f"{(fdf['total_score']<=3).sum():,}"); c6.metric("Markets", f"{fdf['state'].nunique()}")
-    st.markdown("---")
     cats = ["total_score","quality","trustworthiness","value","responsiveness"]; clabels = ["Overall","Quality","Trust","Value","Responsiveness"]
     cmeans = [fdf[c].mean() for c in cats]
     fig = go.Figure(go.Bar(x=clabels, y=cmeans, marker_color=[SHEA_GOLD if v==max(cmeans) else (NEG_RED if v==min(cmeans) else SHEA_BLUE) for v in cmeans], text=[f"{v:.2f}" for v in cmeans], textposition="outside", textfont_size=14))
     fig.update_yaxes(range=[0,5.5]); fig.update_layout(title="Average Scores by Category"); clean_fig(fig, 400); st.plotly_chart(fig, use_container_width=True)
-    commentary("Shea Homes averages a 4.21 out of 5 across 2,039 reviews, with 78% of customers rating 4 or 5 stars. Responsiveness consistently scores highest, while Value trails slightly behind the other categories. The 449 at-risk reviews (1-3 stars) represent 22% of the dataset and are the primary focus of the deeper analysis in later sections.")
+    commentary("Across 2,039 customer reviews, Shea Homes maintains an overall rating of 4.21 out of 5, with 78% of customers awarding four or five stars. Performance is consistent across categories, including quality, trust, value, and responsiveness, with trust receiving the highest scores while quality rates slightly lower than the other dimensions. <br> <br> Within the dataset, 449 reviews (22%) fall into the 1–3 star range, representing customers who reported dissatisfaction with some aspect of their experience. These “at-risk” reviews are particularly important from an operational perspective and serve as the primary focus for the deeper text and sentiment analysis conducted in later sections.")
     st.markdown(f"**Data Source:** [NewHomeSource](https://www.newhomesource.com/builder/shea-homes/reviews/612/) &nbsp;|&nbsp; **Date Range:** {df['date'].min().strftime('%B %Y')} to {df['date'].max().strftime('%B %Y')} &nbsp;|&nbsp; **Author:** Griffin Snider")
 
     st.markdown("---")
@@ -261,7 +261,7 @@ if page == PAGES[0]:
 
     with col1:
         if page != PAGES[0]:
-            if st.button("⇽ Previous"):
+            if st.button("⇽ Back"):
                 previous_page()
 
     with col3:
@@ -272,11 +272,11 @@ if page == PAGES[0]:
 # ===================================================================
 elif page == PAGES[1]:
     st.title("Part 1: Summary Statistics")
-    explain("Before doing any AI or analysis, we will start by just looking at the basic numbers. How many reviews are there? How are the star ratings distributed? Which states and cities have the most feedback? How long are the reviews?")
-    section_header("1.1 Dataset Overview", "High-level metrics on the full review")
+    explain("Before applying modeling or artificial intelligence methods, the analysis begins with summary statistics. This step looks at the basic structure of the dataset, including the total number of reviews, how ratings are distributed across the 1–5 star scale, which states and cities generate the most feedback, and the typical length of customer reviews. Establishing these baseline patterns provides context for the more advanced analyses that follow.")
+    section_header("1.1 Dataset Overview")
     c1,c2,c3,c4 = st.columns(4); c1.metric("Total Reviews",f"{len(fdf):,}"); c2.metric("Total Words",f"{fdf['word_count'].sum():,}"); c3.metric("Avg Length",f"{fdf['word_count'].mean():.1f} words"); c4.metric("Unique Cities",f"{fdf['location'].nunique()}")
-    c5,c6,c7,c8 = st.columns(4); c5.metric("Unique Reviewers",f"{fdf['reviewer_name'].nunique():,}"); c6.metric("Median Length",f"{fdf['word_count'].median():.0f} words"); c7.metric("Shortest",f"{fdf['word_count'].min()} words"); c8.metric("Longest",f"{fdf['word_count'].max()} words")
-    commentary("The dataset contains 117,979 total words across 2,039 reviews, averaging about 58 words per review but with a median of only 34, meaning the distribution is right-skewed: most reviews are short, but a handful are very detailed. The longest review at 1,092 words represents a customer who had a lot to say. Reviews span 74 unique cities across 11 states, giving us broad geographic coverage of Shea's markets.")
+    c6,c7,c8 = st.columns(3); c6.metric("Median Length",f"{fdf['word_count'].median():.0f} words"); c7.metric("Shortest",f"{fdf['word_count'].min()} words"); c8.metric("Longest",f"{fdf['word_count'].max()} words")
+    commentary("The dataset contains 2,039 reviews from 1,510 unique reviewers, totaling 117,979 words. Reviews average 57.9 words, but the median is just 34 words, meaning most are brief while a smaller number contain detailed feedback. The reviews span 74 cities across 11 states. Length ranges from 2 words to 1,092 words, capturing everything from quick ratings to detailed accounts of the homebuying experience.")
 
     section_header("1.2 Star Rating Distribution")
     explain("This section shows how customers rated their experience on a 1 to 5 star scale. The left chart counts how many reviews fell at each star level. The right chart shows the average score across five different rating categories that customers fill out: Overall, Quality, Trustworthiness, Value, and Responsiveness.")
@@ -290,10 +290,10 @@ elif page == PAGES[1]:
         clabels = ["Overall","Quality","Trust","Value","Responsiveness"]
         fig = go.Figure(go.Bar(y=clabels[::-1], x=cmeans[::-1], orientation="h", marker_color=SHEA_BLUE, text=[f"{v:.2f}" for v in cmeans[::-1]], textposition="outside"))
         fig.update_xaxes(range=[0,5.5]); fig.update_layout(title="Average Score by Category"); clean_fig(fig,420); st.plotly_chart(fig, use_container_width=True)
-    commentary("The distribution is heavily left-skewed: 5-star reviews dominate at 53%, while 1-star reviews account for only 7%. All five rating categories land above 4.0, but Value (4.09) lags behind the others. This gap suggests customers feel the product is good but that pricing or perceived worth relative to cost is a softer spot. Responsiveness (4.23) leads, indicating the team's communication is a clear strength.")
+    commentary("The distribution is heavily skewed with 5-star reviews making up 57%, while 1-star reviews account for only 4%. All five categories average above 4.0, with Trust scoring highest (4.21) and Quality and Value slightly lower (4.06). Value perceptions, specifically how customers weigh cost against what was delivered, may represent an area worth watching.")
 
     section_header("1.3 Review Volume Over Time")
-    explain("This chart tracks two things at once. The blue bars show how many reviews were submitted each month. The gold line shows the rolling average star rating over time. Together, they tell us whether customer satisfaction has been getting better, getting worse, or staying consistent.")
+    explain("This chart tracks review activity and customer satisfaction over time. The blue bars show the number of reviews submitted each month, representing review volume. The gold line shows the three-month rolling average star rating, which smooths short-term fluctuations to highlight broader trends in customer satisfaction.")
     monthly = fdf.groupby("year_month").agg(count=("total_score","count"),avg=("total_score","mean")).reset_index()
     monthly["year_month"] = pd.to_datetime(monthly["year_month"]); monthly = monthly.sort_values("year_month"); monthly["rolling"] = monthly["avg"].rolling(3,min_periods=1).mean()
     fig = make_subplots(specs=[[{"secondary_y":True}]])
@@ -301,10 +301,10 @@ elif page == PAGES[1]:
     fig.add_trace(go.Scatter(x=monthly["year_month"],y=monthly["rolling"],name="3-Mo Avg Score",line=dict(color=SHEA_GOLD,width=3)), secondary_y=True)
     fig.update_yaxes(title_text="Count",secondary_y=False); fig.update_yaxes(title_text="Avg Score",range=[1,5.5],secondary_y=True)
     fig.add_hline(y=4.0,line_dash="dash",line_color="gray",opacity=0.3,secondary_y=True); fig.update_layout(title="Review Volume & Score Over Time"); clean_fig(fig,420); st.plotly_chart(fig, use_container_width=True)
-    commentary("Review volume peaked during 2021-2022, coinciding with the post-COVID housing boom when Shea was delivering a high number of homes. Volume has tapered since then as the market cooled. The 3-month rolling average score has remained relatively stable above 4.0 throughout, with some dips in late 2022 and early 2023 that are worth investigating at the market level. The consistency of the score over time suggests systemic strengths.")
+    commentary("Review volume was highest during 2021–2022, when homebuilding activity was higher following the post-pandemic housing surge. Monthly review counts decline after this period as market activity slowed. Despite fluctuations in volume, the three-month average rating remains consistently above 4.0, showing stable customer satisfaction over time. A small dip appears in late 2025, which may warrant closer examination at the market or community level.")
 
     section_header("1.4 Geographic Breakdown")
-    explain("These charts show where the reviews come from. The left side counts how many reviews each state contributed. The right side shows the average star rating for each state, but only for states that had at least 10 reviews so the numbers are meaningful.")
+    explain("These charts examine the geographic distribution of customer feedback. The left chart shows the number of reviews submitted from each state, showing where the largest share of customer feedback originates. The right chart shows the average star rating by state, calculated only for states with at least 10 reviews.")
     col1, col2 = st.columns(2)
     with col1:
         stc = fdf["state"].value_counts().reset_index(); stc.columns=["state","count"]
@@ -314,34 +314,30 @@ elif page == PAGES[1]:
         sts["color"] = sts["mean"].apply(lambda v: POS_GREEN if v>=4 else (NEU_YELLOW if v>=3 else NEG_RED))
         fig = go.Figure(go.Bar(y=sts["state"],x=sts["mean"],orientation="h",marker_color=sts["color"],text=[f"{v:.2f}" for v in sts["mean"]],textposition="inside"))
         fig.add_vline(x=4.0,line_dash="dash",line_color="gray",opacity=0.4); fig.update_xaxes(range=[0,5.5]); fig.update_layout(title="Avg Score by State (10+ reviews)"); clean_fig(fig,max(350,len(sts)*45)); st.plotly_chart(fig, use_container_width=True)
-    commentary("California (684 reviews) and Arizona (532) together make up about 60% of all feedback. On the satisfaction side, most states clear the 4.0 threshold. North Carolina and Colorado trend lower, which may warrant closer examination of specific communities or construction teams in those regions. South Carolina only has 8 reviews and is excluded from the scored chart due to insufficient sample size.")
+    commentary("Most reviews originate from California (684) and Arizona (532), which together account for roughly 60% of the dataset. These states represent the largest share of Shea Homes customer feedback on NewHomeSource. Average ratings across most states remain above 4.0, indicating generally strong satisfaction across markets. A few states show slightly lower averages, which may reflect differences in local operations, project timelines, or customer expectations. States with very small sample sizes are excluded from the average score comparison to avoid misleading results.")
 
-    section_header("1.5 Top Cities & Review Length")
-    explain("The left chart shows which specific cities generated the most reviews. The right chart shows the distribution of review lengths, measured in words. This matters because longer reviews tend to contain more specific and useful information for analysis.")
-    col1, col2 = st.columns(2)
+    section_header("1.5 Top Cities")
+    explain("This chart identifies the cities that generate the largest volume of customer reviews. Each bar represents the number of reviews submitted from a specific city.")
+    col1, = st.columns(1)
     with col1:
         tc = fdf["location"].value_counts().head(15).reset_index(); tc.columns=["city","count"]
         fig = go.Figure(go.Bar(y=tc["city"][::-1],x=tc["count"][::-1],orientation="h",marker_color=SHEA_BLUE,text=tc["count"][::-1],textposition="outside"))
-        fig.update_layout(title="Top 15 Cities"); fig.update_xaxes(range=[0,tc["count"].max()*1.25]); clean_fig(fig,500); st.plotly_chart(fig, use_container_width=True)
-    with col2:
-        fig = px.histogram(fdf,x="word_count",nbins=40,color_discrete_sequence=[SHEA_BLUE],labels={"word_count":"Words per Review"})
-        fig.add_vline(x=fdf["word_count"].median(),line_dash="dash",line_color=NEG_RED,annotation_text=f"Median: {fdf['word_count'].median():.0f}")
-        fig.update_layout(title="Review Length Distribution"); clean_fig(fig,500); st.plotly_chart(fig, use_container_width=True)
-    commentary("Rio Verde, AZ and Indio, CA lead in review volume. The review length histogram shows most customers write concise feedback (under 50 words), but a long tail of detailed reviews exists. These longer reviews tend to be the most analytically valuable, as they contain specific complaints or praise that keyword and sentiment analysis can pick up.")
+        fig.update_layout(title="Top 15 Cities Review Counts"); fig.update_xaxes(range=[0,tc["count"].max()*1.25]); clean_fig(fig,500); st.plotly_chart(fig, use_container_width=True)
+    commentary("Customer feedback is concentrated in a small number of communities. Cities such as Wickenburg, AZ; Las Vegas, NV; Rio Verde, AZ; and San Tan Valley, AZ contribute the highest number of reviews. These locations represent the areas where the dataset contains the most direct customer experience information.")
 
     section_header("1.6 Rating Correlations")
-    explain("This heatmap shows how the five rating dimensions relate. Higher correlation means these categories move together.")
+    explain("This heatmap shows the correlation between the five rating categories: Overall, Quality, Trust, Value, and Responsiveness. Correlation measures how closely two variables move together. Values closer to 1.0 indicate a strong relationship, meaning customers tend to rate those categories similarly.")
     scols = ["total_score","quality","trustworthiness","value","responsiveness"]; slabs = ["Overall","Quality","Trust","Value","Responsiveness"]
     fig = px.imshow(fdf[scols].corr().values, x=slabs, y=slabs, color_continuous_scale="YlOrRd", zmin=0.5, zmax=1, text_auto=".2f")
     fig.update_layout(title="Rating Category Correlations"); clean_fig(fig,450); st.plotly_chart(fig, use_container_width=True)
-    commentary("All categories are highly correlated, showing that customers who rate one dimension poorly tend to rate everything poorly. This suggests the overall experience is somewhat holistic: a bad construction experience drags down trust, value, and responsiveness perceptions too. The strongest correlation is between Quality and Trustworthiness (0.93), which makes intuitive sense since build quality is a direct signal of whether a builder can be trusted.")
+    commentary("All categories are highly correlated, showing that customers who rate one dimension poorly tend to rate everything poorly. This suggests the overall experience is somewhat holistic: a bad construction experience drags down trust, value, and responsiveness perceptions too.")
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
 
     with col1:
         if page != PAGES[0]:
-            if st.button("⇽ Previous"):
+            if st.button("⇽ Back"):
                 previous_page()
 
     with col3:
@@ -351,32 +347,34 @@ elif page == PAGES[1]:
 # ===================================================================
 elif page == PAGES[2]:
     st.title("Part 2: Data Evaluation")
-    explain("Before doing analysis, it is important to check whether the data is good enough to support the conclusions we want to draw. Is 2,039 reviews enough? Are there any biases or blind spots we should know about? This section is about being honest about the strengths and limitations of the dataset before we use it to make recommendations.")
+    explain("Before conducting analysis, the dataset must first be evaluated for quality, representativeness, and potential limitations. Key considerations include whether 2,039 reviews constitute an adequate sample size, and whether any biases or gaps in coverage may affect the findings. This section provides a transparent assessment of the dataset's strengths and limitations prior to deriving recommendations")
     section_header("2.1 Business Question")
-    explain("<b>Core business question:</b> What are customers really saying about Shea Homes, and where are the opportunities to improve?")
+    explain("<b>Core business question:</b> What do customer reviews show about the Shea Homes homebuying experience, and which aspects of that experience represent the largest opportunity for improvement?")
 
     section_header("2.2 Sample Size Assessment")
+    explain("This section evaluates whether the dataset is large enough to support reliable conclusions. It summarizes the total number of reviews, the average rating, and how reviews are distributed across states.")
     n=len(fdf); mu=fdf["total_score"].mean(); sd=fdf["total_score"].std(); me=1.96*(sd/np.sqrt(n)); ci_lo=mu-me; ci_hi=mu+me
     c1,c2,c3=st.columns(3); c1.metric("Sample Size",f"{n:,}"); c2.metric("Mean Score",f"{mu:.3f}"); c3.metric("95% CI",f"[{ci_lo:.3f}, {ci_hi:.3f}]")
     st.markdown("**Per-state sample sizes:**")
     st.dataframe(fdf["state"].value_counts().reset_index().rename(columns={"index":"State","state":"State","count":"Reviews"}), use_container_width=True, hide_index=True)
-    commentary("With 2,039 reviews and a margin of error of plus or minus 0.048 stars, we can be very confident in the overall average. It is a tight range. However, smaller markets like Idaho with 34 reviews and South Carolina with 8 should be interpreted cautiously. State level comparisons are most trustworthy for California, Arizona, Colorado, Texas, and Nevada where sample sizes exceed 100.")
+    commentary("The dataset contains 2,039 reviews with an average rating of 4.21. To estimate how precise this average is, we calculate a 95% confidence interval, which represents the range where the true average customer rating is likely to fall. The interval of 4.162 to 4.259 indicates that the estimated average rating is statistically stable. Review counts vary across states. Arizona and California account for the largest share of feedback, while several states have smaller samples. Locations with fewer reviews provide less statistical certainty and should be interpreted cautiously")
 
     section_header("2.3 Potential Biases")
+    explain("Online review datasets often contain structural biases that can influence how results should be interpreted. This section identifies several common sources of bias within the dataset and explains how they may affect the conclusions drawn from the analysis.")
     st.dataframe(pd.DataFrame([
         ["Self-selection bias","Customers with strong opinions more likely to review","May overrepresent extremes"],
         ["Geographic concentration","CA and AZ account for ~60% of reviews","State-level conclusions should note sample sizes"],
         ["Temporal skew","2021-2022 peak volume (post-COVID boom)","Trends may reflect market conditions"],
         ["Platform bias","TrustBuilder is builder-partnered","Sentiment may be inflated vs independent sites"],
     ], columns=["Bias","Description","Impact"]), use_container_width=True, hide_index=True)
-    commentary("These biases don't invalidate the analysis, but they frame how to interpret it. The most important one is platform bias: because these reviews come from a builder-partnered site (TrustBuilder), the overall sentiment likely skews more positive than what you would see on Yelp or the BBB. This means the negative reviews we do find are especially significant, as they represent dissatisfaction strong enough to surface despite the platform's positive tilt.")
+    commentary("The most significant is platform bias. Because the reviews originate from a builder-partnered platform, overall ratings may skew more positive than reviews found on independent consumer sites. As a result, the negative reviews that do appear in the dataset are particularly informative. They represent customers whose dissatisfaction was strong enough to be expressed despite the generally positive environment of the platform.")
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
 
     with col1:
         if page != PAGES[0]:
-            if st.button("⇽ Previous"):
+            if st.button("⇽ Back"):
                 previous_page()
 
     with col3:
@@ -386,10 +384,10 @@ elif page == PAGES[2]:
 # ===================================================================
 elif page == PAGES[3]:
     st.title("Part 3: Preliminary Sentiment Analysis")
-    explain("Sentiment analysis lets a computer read written feedback and estimate the emotion behind it. Each review is scanned word-by-word using dictionaries of terms known to carry positive or negative meaning (for example great, love, slow, frustrating). These signals are combined into a final score between –1 (very negative) and +1 (very positive) that represents the overall tone of the review. We used two tools to calculate this: VADER, which is designed for reviews and social media and adjusts for emphasis like capitalization or exclamation points, and TextBlob, a general language model that calculates sentiment based on the balance of positive and negative words. Using both methods helps confirm that the patterns we observe in customer sentiment are consistent and reliable.")
+    explain("Sentiment analysis is a natural language processing technique that allows a computer to evaluate written feedback and estimate the emotional tone of the text. Instead of manually reading thousands of reviews, algorithms analyze the words used in each comment to determine whether the overall message is positive, negative, or neutral. Words associated with positive experiences (such as “great” or “helpful”) increase the sentiment score, while words associated with problems or frustration decrease it. <br> <br> Each review is converted into a numerical sentiment score ranging from −1 to +1, where −1 represents very negative language and +1 represents very positive language. To increase reliability, this analysis uses two widely used sentiment models. VADER (Valence Aware Dictionary and sEntiment Reasoner) is designed specifically for social media and review text and accounts for emphasis such as capitalization, punctuation, and emotional wording. TextBlob is a general-purpose language model that evaluates sentiment based on the balance of positive and negative terms within the text. Using two independent methods allows the analysis to compare results and confirm that the patterns observed in customer sentiment are consistent.")
 
     section_header("3.1 Overall Sentiment Breakdown")
-    explain("The two pie charts below show what percentage of reviews each tool classified as positive, negative, or neutral. The line chart on the right is a sanity check. It plots average sentiment score against star rating to make sure the tools are actually working correctly. If they are, we should see sentiment go up as star ratings go up.")
+    explain("These charts summarize how each sentiment model classified the reviews. The pie charts show the percentage of reviews labeled positive, neutral, or negative by each tool. The chart on the right compares the average sentiment score with the star rating to verify that the models behave as expected. If the models are working correctly, reviews with higher star ratings should also show more positive sentiment")
     c1,c2,c3 = st.columns(3)
     with c1:
         vc = fdf["vader_label"].value_counts()
@@ -405,10 +403,10 @@ elif page == PAGES[3]:
         fig.add_trace(go.Scatter(x=ss["total_score"],y=ss["vader_compound"],mode="lines+markers",name="VADER",line=dict(color=SHEA_BLUE,width=3),marker=dict(size=10)))
         fig.add_trace(go.Scatter(x=ss["total_score"],y=ss["textblob_polarity"],mode="lines+markers",name="TextBlob",line=dict(color=SHEA_GOLD,width=3,dash="dash"),marker=dict(size=10,symbol="square")))
         fig.add_hline(y=0,line_color="gray",opacity=0.3); fig.update_xaxes(title="Star Rating",dtick=1); fig.update_layout(title="Sentiment vs Stars"); clean_fig(fig,340); st.plotly_chart(fig, use_container_width=True)
-    commentary("Both methods agree that the vast majority of reviews are positive (VADER: 78%, TextBlob: 80%), which aligns with the 78% of reviews being 4-5 stars. VADER identifies more negative reviews (16%) than TextBlob (8%), because VADER is better at catching negative language patterns in review text. The Sentiment vs Stars chart confirms both tools properly track star ratings, with sentiment scores climbing linearly from 1-star to 5-star, validating that these algorithms are reading the text correctly.")
+    commentary("Both models produce similar results, showing that the majority of reviews contain positive language. VADER classifies about 78% of reviews as positive, while TextBlob identifies roughly 80% as positive. VADER detects more negative reviews than TextBlob, reflecting its stronger sensitivity to negative wording in review-style text. <br> <br>The sentiment vs. star rating chart provides a validation check. Sentiment scores increase steadily from 1-star to 5-star reviews, confirming that both models are interpreting the language in a way that aligns with the rating customers assigned.")
 
     section_header("3.2 Sentiment Trends Over Time")
-    explain("This tracks customer sentiment over time, broken into quarters. The top chart shows the average sentiment score each quarter. The bottom chart shows what percentage of reviews were positive versus negative in each quarter. Together they tell us whether customer happiness has been changing over time.")
+    explain("This section examines how customer sentiment has changed over time. Reviews are grouped by quarter to identify broader trends. The top chart shows the average sentiment score per quarter, while the bottom chart shows the percentage of reviews classified as positive and negative during each period.")
     qtr = fdf.groupby("quarter").agg(avg_v=("vader_compound","mean"),pct_pos=("vader_label",lambda x:(x=="Positive").mean()),pct_neg=("vader_label",lambda x:(x=="Negative").mean()),cnt=("total_score","count")).reset_index()
     qtr["qt"]=pd.to_datetime(qtr["quarter"]); qtr=qtr.sort_values("qt")
     fig = make_subplots(rows=2,cols=1,shared_xaxes=True,vertical_spacing=0.08,subplot_titles=["Avg VADER Sentiment","Positive vs Negative Share"])
@@ -416,18 +414,18 @@ elif page == PAGES[3]:
     fig.add_trace(go.Bar(x=qtr["qt"],y=qtr["pct_pos"]*100,name="% Positive",marker_color=POS_GREEN,opacity=0.7),row=2,col=1)
     fig.add_trace(go.Bar(x=qtr["qt"],y=-qtr["pct_neg"]*100,name="% Negative",marker_color=NEG_RED,opacity=0.7),row=2,col=1)
     clean_fig(fig,550); fig.update_yaxes(range=[0,1],row=1,col=1); fig.update_layout(title="Sentiment Trends Over Time"); st.plotly_chart(fig, use_container_width=True)
-    commentary("Sentiment has remained broadly stable over the five-year period, hovering between 0.4 and 0.7 on the VADER compound scale. The bottom chart shows the negative share rarely exceeds 25% in any quarter, and positive share consistently dominates at 70-85%. No dramatic deterioration or improvement trend is visible, which suggests Shea's customer experience quality is relatively consistent across time rather than volatile.")
+    commentary("Customer sentiment remains consistently positive throughout the period, with average sentiment scores generally staying between 0.4 and 0.7 on the VADER scale. The share of positive reviews typically ranges between 70% and 85%, while negative reviews remain a much smaller portion of the dataset. Overall, the charts show no major long-term decline or improvement in sentiment, suggesting that customer satisfaction has remained relatively stable over time.")
 
     section_header("3.3 Sentiment by State")
-    explain("This chart ranks each state by how positive or negative the review text reads, using the VADER sentiment score. A higher score means customers in that state tend to write more positively. This tells us which markets are performing best from the customer's perspective and which ones might need attention.")
+    explain("This chart compares customer sentiment across states using the VADER sentiment score. Each bar represents the average sentiment of review text within a state. Higher scores indicate that customers in that market tend to describe their experience using more positive language")
     ss = fdf.groupby("state").agg(avg_v=("vader_compound","mean"),avg_s=("total_score","mean"),cnt=("total_score","count")).reset_index()
     ss = ss[ss["cnt"]>=10].sort_values("avg_v"); ss["color"]=ss["avg_v"].apply(lambda v: POS_GREEN if v>=0.5 else (NEU_YELLOW if v>=0.3 else NEG_RED))
     fig = go.Figure(go.Bar(y=ss["state"],x=ss["avg_v"],orientation="h",marker_color=ss["color"],text=[f"{v:.3f} (avg {s:.1f}, n={c})" for v,s,c in zip(ss["avg_v"],ss["avg_s"],ss["cnt"])],textposition="outside"))
     fig.update_xaxes(range=[0,ss["avg_v"].max()+0.25]); fig.update_layout(title="Sentiment by State"); clean_fig(fig,max(380,len(ss)*50)); st.plotly_chart(fig, use_container_width=True)
-    commentary("North Carolina and Idaho stand out as the lowest-sentiment state, which paired with its lower star average warrants a closer look at specific communities or construction teams operating there. Meanwhile, Colorado and Texas lead in sentiment. California and Arizona, the two largest markets, both perform solidly above 0.45.")
+    commentary("Most states show consistently positive sentiment, with scores clustering between 0.45 and 0.55. Colorado and Texas rank among the highest, showing positive review language in those markets. <br> <br> North Carolina and Idaho appear lower in comparison, suggesting that customer experiences in those markets may warrant closer examination. California and Arizona, the two markets with the largest number of reviews, remain positive, showing stable customer sentiment in Shea Homes’ largest operating regions.")
 
     section_header("3.4 Negative vs Positive Word Frequency")
-    explain("This section compares the most common words used in 1 to 2 star reviews against the most common words used in 4 to 5 star reviews. By looking at what language unhappy customers use versus happy customers, we can start to see the specific themes driving satisfaction and dissatisfaction")
+    explain("This analysis examines the most frequently used words in positive and negative reviews. The charts compare language used in 1–2 star reviews with language used in 4–5 star reviews. By analyzing which terms appear most often in each group, we can identify the themes that customers associate with positive experiences and the issues that appear most often in negative feedback.")
     sw = get_stop_words(); sw_list = list(sw)
     neg_t = fdf[fdf["total_score"]<=2]["review_text"]; pos_t = fdf[fdf["total_score"]>=4]["review_text"]
     if len(neg_t)>5 and len(pos_t)>5:
@@ -458,27 +456,27 @@ elif page == PAGES[3]:
 
                     clean_fig(fig, 500)
                     st.plotly_chart(fig, use_container_width=True)
-    commentary("On the negative side, the words that come up over and over are issues, problems, quality, warranty, time, and construction. Unhappy customers are talking about things that went wrong with the house itself and how long it took to get things fixed. On the positive side, the most common words are experience, team, great, process, building, and sales. Happy customers are talking about the people they worked with and how smooth the process was. This is a clear pattern: the people are the strength, and the physical product is where problems show up.")
+    commentary("Negative reviews frequently reference words such as issues, quality, warranty, time, and construction, indicating that dissatisfaction is often related to build quality or delays in resolving problems after purchase. In contrast, positive reviews emphasize words such as experience, team, process, and service, suggesting that customers frequently highlight interactions with staff and the overall buying process when describing a positive experience. This contrast suggests that customer-facing interactions are a key strength, while product quality and issue resolution appear more often in negative feedback.")
 
     section_header("3.5 Distinctive Negative Review Words")
-    explain("This table goes a step further than the word charts above. Instead of just counting common words, it compares how often a word shows up in negative reviews versus positive reviews. A word with a high overrepresentation number means it appears far more often in complaints than in praise. This helps pinpoint the specific issues that are driving dissatisfaction.")
+    explain("This table identifies words that appear disproportionately often in negative reviews compared with positive reviews. Instead of simply counting the most common words, the analysis measures how much more frequently a word appears in complaints than in positive feedback. Words with high overrepresentation scores are strongly associated with dissatisfied customer experiences.")
     if len(neg_t)>5 and len(pos_t)>5:
         dist = get_neg_distinctive(neg_t, pos_t, sw_list)
         if dist: st.dataframe(pd.DataFrame(dist, columns=["Word","Count","Overrepresentation"]).assign(**{"Overrepresentation": lambda d: d["Overrepresentation"].map("{:.1f}x".format)}), use_container_width=True, hide_index=True)
     commentary("Words like poor (192.7x more common in negative reviews), installed (140.6x), cabinets (109.4x), and flooring (83.3x) point to specific construction pain points. The word waiting (109.4x) and months suggest delays are a major theme. These are not abstract complaints; they are about specific, fixable things: cabinets installed wrong, flooring issues, and long wait times for repairs.")
 
     section_header("3.6 Score vs. Sentiment Mismatch")
-    explain("Reviews where star rating and text sentiment disagree. Hidden complaints (4-5 stars but negative text) gave a good rating but still wrote about problems. These are people who are generally satisfied but have a specific issue they want heard. They are not angry enough to leave a bad rating, but they are telling you exactly what to fix. This section finds those reviews.")
+    explain("This section identifies reviews where the star rating and the language of the review do not align. In most cases, higher star ratings are associated with positive wording, while lower ratings contain more negative language. When these signals disagree, it can show more complexity in the customer experience that star ratings alone may not capture. <br> <br> One important category is high-star reviews with negative sentiment in the text. These reviews often show that a customer was generally satisfied but still experienced specific problems worth noting. Identifying these cases helps surface issues that may otherwise be overlooked when focusing only on low star ratings.")
     high_neg = fdf[(fdf["total_score"]>=4)&(fdf["vader_compound"]<-0.05)]; low_pos = fdf[(fdf["total_score"]<=2)&(fdf["vader_compound"]>0.5)]
     c1,c2,c3 = st.columns(3); c1.metric("Total Mismatches",f"{fdf['mismatch'].sum()} ({fdf['mismatch'].mean():.1%})"); c2.metric("High Stars + Neg Text",f"{len(high_neg)}"); c3.metric("Low Stars + Pos Text",f"{len(low_pos)}")
     if len(high_neg)>0:
         st.markdown("**Hidden Complaints (samples):**")
         for _, r in high_neg.sort_values("vader_compound").head(3).iterrows():
             st.markdown(f"> **{r['total_score']} stars** | VADER: {r['vader_compound']:.3f} | {r['location']}  \n> _{str(r['review_text'])[:300]}..._")
-    commentary("110 customers gave 4-5 stars but wrote text that VADER scored as negative. These are the hidden complaints: customers who were happy enough overall but had specific grievances. These are arguably the most actionable reviews in the entire dataset because they represent salvageable relationships. A customer who gives 5 stars but complains about landscaping subcontractors is telling you exactly what to fix without being angry enough to leave a bad rating.")
+    commentary("A total of 146 reviews (7.2% of the dataset) show a mismatch between the rating and the sentiment expressed in the text. The majority of these cases, 110 reviews, are high-star ratings paired with negative language, indicating customers who reported specific issues despite assigning an overall positive score. These reviews are particularly valuable from an operational perspective. Because the customer still left a favorable rating, the relationship is largely intact, yet the written feedback highlights clear opportunities for improvement, such as subcontractor performance, installation quality, or post-closing service.")
 
     section_header("3.7 Sample Reviews by Sentiment")
-    explain("To make the sentiment scores tangible, here are real reviews from each category. This gives a feel for what the algorithm is actually reading and how it translates to a score.")
+    explain("To show how the sentiment models interpret review text, this section gives real examples from the dataset across different sentiment categories. These examples help translate the numerical sentiment scores into the type of language customers actually use when describing their experiences.")
     for label, sa in [("Positive",False),("Negative",True),("Neutral",None)]:
         sub = fdf[fdf["vader_label"]==label]
         if len(sub)==0: continue
@@ -486,14 +484,14 @@ elif page == PAGES[3]:
         st.markdown(f"**Most {label} Reviews:**")
         for _, r in sub.iterrows():
             st.markdown(f"> **{r['total_score']} stars** | {r['location']} | {r['date'].strftime('%b %Y') if pd.notna(r['date']) else 'N/A'} | VADER: {r['vader_compound']:.3f}  \n> _{str(r['review_text'])[:350]}..._")
-    commentary("These samples show what the sentiment engine is actually picking up. The most positive reviews are enthusiastic and mention specific people by name. The most negative reviews describe specific construction defects and frustrations with response times. The neutral reviews tend to be very short or factual without strong emotional language. Reading a few of these gives a good feel for what each sentiment category actually sounds like in practice.")
+    commentary("Positive reviews typically contain enthusiastic language and references to specific employees, teams, or smooth buying experiences. Negative reviews, in contrast, tend to focus on specific construction defects, installation problems, or delays in resolving issues. Neutral reviews generally contain short or factual statements with little emotional language, which results in sentiment scores near zero. Reviewing these examples provides context for how the sentiment algorithms classify text and what each sentiment category represents in practice.")
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
 
     with col1:
         if page != PAGES[0]:
-            if st.button("⇽ Previous"):
+            if st.button("⇽ Back"):
                 previous_page()
 
     with col3:
@@ -503,10 +501,10 @@ elif page == PAGES[3]:
 # ===================================================================
 elif page == PAGES[4]:
     st.title("Part 4: Advanced Natural Language Processing Analysis")
-    explain("This section uses more advanced natural language processing techniques to go beyond simple positive and negative labels. It automatically discovers what topics customers talk about, measures how they feel about specific business areas like sales or warranty, finds which employees are mentioned most often, and looks at multi-word phrases that reveal more nuance than individual words alone.")
+    explain("This section applies advanced natural language processing (NLP) techniques to find insights from customer reviews. Rather than only measuring whether reviews are positive or negative, these methods analyze the text to identify recurring themes, frequently discussed topics, and patterns in how customers describe their experiences. <br> <br> The analysis also looks for which aspects of the homebuying experience customers mention most often, such as sales interactions, construction quality, or warranty service. By analyzing groups of words and phrases together, these techniques show more detailed patterns in customer feedback and help find the specific areas of the business that drive satisfaction or dissatisfaction.")
 
     section_header("4.1 Topic Discovery (Latent Dirichlet Allocation (LDA))")
-    explain("Topic modeling is a way to have the computer sort all 2,039 reviews into groups based on what each one is talking about. We did not tell the computer what the topics should be. It read through every review on its own and figured out that certain words tend to show up together. For example, reviews that mention warranty, repair, and fix tend to cluster together, so the computer creates a Warranty topic. This gives us a bird's eye view of what customers are actually talking about.")
+    explain("This section uses a technique called topic modeling to automatically identify the main subjects customers discuss in their reviews. The specific method used, Latent Dirichlet Allocation (LDA), analyzes patterns of words that frequently appear together across the dataset. Reviews that contain similar groups of words are grouped into a shared topic, allowing the model to discover common themes without being manually labeled in advance. <br> <br> By applying this approach to all reviews, the model identifies the major themes in customer feedback, such as construction quality, the buying process, sales interactions, and post-purchase issues. This provides a structured overview of what customers talk about most often.")
     tnames, tconf, tkws, tname_map = compute_topics(df["review_text"]); df["topic_name"]=tnames; fdf_t=df.copy()
     col1,col2 = st.columns(2)
     with col1:
@@ -521,10 +519,10 @@ elif page == PAGES[4]:
     st.markdown("**Discovered Topic Keywords:**")
     for num, kws in enumerate(tkws, 1):
         st.markdown(f"- **{tname_map.get(num, f'Topic {num}')}:** {', '.join(kws[:8])}")
-    commentary("The algorithm discovered 6 distinct topics without any guidance. Topics related to warranty and construction issues have the lowest satisfaction scores (often below 4.0), while topics around the sales experience and community lifestyle score highest. This aligns with what the word frequency analysis found: the people and the process are strengths, while the physical build and post-close service are where dissatisfaction concentrates.")
+    commentary("The algorithm discovered 6 distinct topics without any guidance. Construction quality appears most frequently, representing the largest share of customer discussion. Topics related to the buying process and sales experience also appear often and tend to receive the highest satisfaction scores. In contrast, reviews grouped under issues and problems show noticeably lower satisfaction levels. This pattern suggests that while the sales and purchasing experience is generally well received, dissatisfaction is more commonly associated with construction defects or post-delivery service issues.")
 
     section_header("4.2 Aspect-Based Sentiment")
-    explain("This takes a different approach from topic modeling. Instead of looking at the whole review at once, it breaks each review into specific business topics: sales, construction quality, warranty, design, communication, and pricing. It then measures the sentiment for each topic separately within the same review. So if a customer writes one sentence praising the sales team and another sentence complaining about drywall cracks, this tool scores the sales mention as positive and the construction mention as negative, instead of averaging them together.")
+    explain("Aspect-based sentiment analysis examines how customers feel about specific parts of the homebuying experience. Instead of assigning a single sentiment score to an entire review, this method identifies mentions of key business areas (sales, construction quality, warranty service, communication, design, and pricing) and measures sentiment for each one separately. <br> <br> This approach is useful because customers often discuss multiple aspects within the same review. For example, a customer may write one sentence praising the sales team and another complaining about drywall cracks. Aspect-based sentiment analysis evaluates each of these mentions separately, scoring the sales interaction as positive and the construction issue as negative rather than averaging the entire review into a single score.")
     asp = compute_aspects(fdf["review_text"]); adf = pd.DataFrame(asp).T.sort_values("avg_sentiment")
     col1,col2 = st.columns(2)
     with col1:
@@ -536,7 +534,7 @@ elif page == PAGES[4]:
         fig.add_vline(x=0,line_color="black",line_width=1); fig.update_layout(title="Sentiment by Aspect"); clean_fig(fig,400); st.plotly_chart(fig, use_container_width=True)
     w=adf["avg_sentiment"].idxmin(); s=adf["avg_sentiment"].idxmax()
     finding(f"<b>Strongest aspect:</b> {s} ({adf.loc[s,'avg_sentiment']:+.3f}) &nbsp;|&nbsp; <b>Weakest aspect:</b> {w} ({adf.loc[w,'avg_sentiment']:+.3f})")
-    commentary(f"Construction Quality is mentioned in 54% of all reviews, making it the most discussed aspect, but it also has a relatively lower sentiment. Warranty & Post-Move is the weakest aspect at {adf.loc[w,'avg_sentiment']:+.3f}, with 25% of warranty-related mentions carrying negative sentiment. Sales & Buying Process and Communication both score well, reinforcing the pattern that Shea's people are its biggest asset.")
+    commentary("Construction quality is the most frequently discussed topic, appearing in more than half of all reviews. However, it also shows lower sentiment scores compared with other aspects, indicating that many customer concerns are tied to the physical build or post-construction issues. In contrast, sales interactions and communication receive the strongest sentiment scores, suggesting that customers generally view the front-end buying experience positively. Warranty and post-move service shows the weakest sentiment, highlighting it as an area where improvements could have a meaningful impact on overall customer satisfaction.")
 
     section_header("4.3 Employee Recognition Mining")
     explain("Customers often mention Shea team members by name in their reviews. This section scans through all 2,039 reviews, looks for names, and then reads the sentences around each name to figure out whether the customer was saying something positive or negative about that person. This is useful for identifying top performers who consistently get praised, or for spotting cases where a specific team member keeps coming up in negative contexts.")
@@ -550,7 +548,7 @@ elif page == PAGES[4]:
     commentary("Mike in Las Vegas, Ryan in Indio, and Josh in Manvel are the most frequently mentioned employees, and all of them carry positive sentiment scores. That means when customers mention these people, they are saying good things. This kind of data could feed directly into recognition programs or performance reviews. It could also flag cases where a specific person keeps showing up in negative reviews, which would be an early signal for coaching or support.")
 
     section_header("4.4 Common Phrases (N-grams)", "Two and three word phrases in negative vs positive reviews")
-    explain("The word charts earlier looked at one word at a time. But sometimes meaning comes from combinations of words. The phrase not responsive means the opposite of responsive, even though the word responsive by itself sounds positive. This section looks at two-word and three-word phrases that show up frequently in negative versus positive reviews, which gives a more accurate picture of what customers are actually saying.")
+    explain("Earlier analysis looked at individual words, but meaning often comes from combinations of words. For example, the phrase “not responsive” carries the opposite meaning of the single word “responsive,” even though the word itself is positive. <br> <br> This section analyzes common two-word and three-word phrases that appear frequently in positive and negative reviews. Looking at phrases instead of individual words provides a clearer picture of what customers are actually describing in their experiences")
     sw_list = list(get_stop_words()); neg_t = fdf[fdf["total_score"]<=2]["review_text"]; pos_t = fdf[fdf["total_score"]==5]["review_text"]
     if len(neg_t)>=5 and len(pos_t)>=5:
         col1,col2 = st.columns(2)
@@ -561,14 +559,14 @@ elif page == PAGES[4]:
                     if ngr:
                         w,c = zip(*ngr[::-1]); fig = go.Figure(go.Bar(y=list(w),x=list(c),orientation="h",marker_color=color,text=list(c),textposition="outside"))
                         fig.update_layout(title=f"{label}: {nl}"); clean_fig(fig,380); st.plotly_chart(fig, use_container_width=True)
-    commentary("The negative phrases reveal specific pain points:  warranty manager and build quality come up repeatedly. On the positive side, sales team, great experience, building process, and start finish dominate. The phrase start finish showing up frequently in 5-star reviews is a strong signal. Customers love it when the whole journey feels seamless from beginning to end.")
+    commentary("The negative phrases highlight specific operational pain points. Terms related to customer service, build quality, and warranty support appear frequently in lower-rated reviews, indicating that dissatisfaction often centers around post-purchase issues or construction defects. <br> <br> In contrast, the most common positive phrases focus on the sales team, the buying experience, and the overall building process. Phrases like “great experience,” “customer service,” and “start to finish” appear frequently in 5-star reviews, suggesting that customers are especially satisfied when the entire homebuying journey feels smooth and well managed from beginning to end.")
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
 
     with col1:
         if page != PAGES[0]:
-            if st.button("⇽ Previous"):
+            if st.button("⇽ Back"):
                 previous_page()
 
     with col3:
@@ -578,7 +576,7 @@ elif page == PAGES[4]:
 # ===================================================================
 elif page == PAGES[5]:
     st.title("Part 5: Predictive Models")
-    explain("<b>The Big Question:</b> Can ML predict star ratings from text alone?<br><br><b>Why it matters:</b> Everything up to this point has been about understanding reviews that already have star ratings attached. This section asks a different question: if we only had the text of a review and no star rating, could the computer figure out whether the customer is happy or unhappy just from what they wrote? This matters because a lot of customer feedback, like open-ended survey responses, social media comments, or emails, does not come with a star rating. If we can teach the computer to read text and predict satisfaction, we can apply it to all kinds of feedback that does not have a number attached. We tested three different prediction models to see which one does the best job.<br><br><b>Approach:</b> Hybrid models combining TF-IDF text features (5,000 word/phrase weights) with numeric signals (VADER score, word count, exclamation count). Balanced class weights handle the 78/22% class imbalance. Evaluated with Macro F1 so models cannot cheat by predicting the majority class.")
+    explain("<b>The Big Question:</b> Can machine learning predict customer satisfaction from the words in a review alone?<br><br><b>Why it matters:</b> All of the earlier analysis looked at reviews that already had star ratings attached. This section explores a different question: if we only had the written text of a review, could a algorithm determine whether the customer was satisfied or dissatisfied? This is important because much customer feedback, such as survey comments, emails, support tickets, or social media posts, often comes without a rating. If we can train a model to read text and estimate satisfaction, that approach could be applied to any source of written feedback, even when no numerical score is provided. To test this, we built several machine learning models and evaluated how accurately they could predict star ratings based only on the review text.<br><br><b>Approach:</b> Hybrid models combining TF-IDF text features (5,000 word/phrase weights) with numeric signals (VADER score, word count, exclamation count). Balanced class weights handle the 78/22% class imbalance. Evaluated with Macro F1 so models cannot cheat by predicting the majority class.")
 
     section_header("5.1 At-Risk Customer Detection (Binary)", "Satisfied (4-5 star) vs At-Risk (1-3 star)")
     explain("This is the simplest and most practical version of the prediction. We split all reviews into two groups: satisfied customers who gave 4 or 5 stars, and at-risk customers who gave 1, 2, or 3 stars. Then we trained three different models on 80 percent of the reviews, where the model could see both the text and the star rating and learn the patterns. After training, we tested each model on the remaining 20 percent of reviews that it had never seen before, giving it only the text and asking it to predict whether the customer was satisfied or at-risk.")
@@ -598,7 +596,7 @@ elif page == PAGES[5]:
     commentary("Gradient Boosting wins with 84.1% accuracy and the highest Macro F1 (0.757). It catches 58% of at-risk customers from text alone, with 66% precision, meaning when it flags someone as at-risk, it is right 2 out of 3 times. Logistic Regression has better at-risk recall (72%) but more false positives (56% precision). Random Forest is the weakest here because it struggles with the minority class, only catching 43% of at-risk customers despite high overall accuracy. The tradeoff between recall and precision depends on the business use case: if missing an at-risk customer is costly, Logistic Regression's higher recall may be preferable.")
 
     section_header("5.2 Three-Class Prediction", "Negative (1-2 star) vs Neutral (3 star) vs Positive (4-5 star)")
-    explain("This is a harder version of the same task. Instead of just satisfied versus at-risk, we now ask the model to sort reviews into three groups: negative (1 to 2 stars), neutral (3 stars), and positive (4 to 5 stars). This is trickier because 3-star reviews are genuinely ambiguous. The customer is not really happy or really unhappy, and their language reflects that.")
+    explain("This task is more challenging than the previous prediction. Instead of simply identifying satisfied versus at-risk customers, the model must now classify reviews into three groups: negative (1–2 stars), neutral (3 stars), and positive (4–5 stars). <br> <br> This is significantly harder because 3-star reviews are inherently ambiguous. Customers in this group are often neither strongly satisfied nor strongly dissatisfied, and their language tends to reflect a mix of positive and negative comments.")
 
     models3 = ["Logistic Regression","Random Forest","Gradient Boosting"]
     acc3 = [76.2, 77.5, 79.2]; f1_3 = [0.561, 0.319, 0.510]
@@ -610,10 +608,10 @@ elif page == PAGES[5]:
     fig.add_trace(go.Bar(name="Neu Recall", x=models3, y=neu_r, marker_color=NEU_YELLOW, text=[f"{v}%" for v in neu_r], textposition="outside"), row=1, col=2)
     fig.add_trace(go.Bar(name="Pos Recall", x=models3, y=pos_r, marker_color=POS_GREEN, text=[f"{v}%" for v in pos_r], textposition="outside"), row=1, col=2)
     fig.update_yaxes(range=[0,115]); fig.update_layout(barmode="group"); clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
-    commentary("This is a good example of why you cannot just look at one number. Random Forest had the highest overall accuracy at 77.5 percent, but look at the right side of the chart. It only caught 3 percent of negative reviews and 2 percent of neutral ones. It was basically just predicting positive for every single review and getting a high score because most reviews are positive. That is not useful at all. Logistic Regression did a much better job of actually finding the negative and neutral reviews, catching 58 percent and 37 percent respectively. The takeaway is that prediction is possible, but the middle ground of 3-star reviews is hard to pin down because the language customers use in those reviews is genuinely mixed.")
+    commentary("These results show why overall accuracy alone is not sufficient for evaluating model performance. Gradient Boosting achieved the highest overall accuracy at 79.2%, but looking at the recall by class reveals important differences between the models. Random Forest performed poorly at identifying negative and neutral reviews, capturing only 3% of negative reviews and 2% of neutral reviews. In practice, it was largely predicting most reviews as positive and benefiting from the fact that positive reviews dominate the dataset. Logistic Regression provided the most balanced performance, correctly identifying 58% of negative reviews and 37% of neutral reviews, making it more useful for detecting dissatisfied customers. The key takeaway is that while predicting customer sentiment from text is feasible, neutral reviews remain the most difficult category to classify, since the language in 3-star reviews often contains a genuine mix of positive and negative signals.")
 
     section_header("5.3 Most Predictive Words by Category", "What language signals each rating level?")
-    explain("When the prediction model reads a review and makes its decision, it is paying attention to specific words more than others. This section shows which words had the biggest influence on pushing a review toward each category. Think of it like asking the model: what are you looking at when you decide a review is negative versus positive? The longer the bar, the more that word mattered to the prediction.")
+    explain("When the prediction model evaluates a review, certain words influence its decision more than others. This section highlights the words that had the strongest impact on predicting each rating category. In simple terms, this analysis asks: which words most strongly signal that a review is negative, neutral, or positive? Longer bars indicate that a word had a stronger influence on the model’s prediction.")
 
     col1,col2,col3 = st.columns(3)
     with col1:
@@ -641,7 +639,7 @@ elif page == PAGES[5]:
 
     with col1:
         if page != PAGES[0]:
-            if st.button("⇽ Previous"):
+            if st.button("⇽ Back"):
                 previous_page()
 
     with col3:
@@ -652,7 +650,7 @@ elif page == PAGES[5]:
 elif page == PAGES[6]:
     st.title("Part 6: Large Language Model Analysis")
     st.markdown("*LLaMA 3.2 via Ollama (pre-computed locally)*")
-    explain("Everything before used specialized tools for narrow tasks. A Large Language Model like Meta's LLaMA 3.2 is a general-purpose AI that can read reviews like a human, follow complex instructions, and produce natural language output. We gave it customer reviews and asked it to do things like classify sentiment, identify themes, suggest action items, and even write an executive summary. These results were generated on a local computer and saved here.")
+    explain("The previous sections relied on specialized models designed for specific tasks, such as sentiment analysis, topic modeling, or predictive classification. In this final section, we explore a different type of tool: a Large Language Model (LLM). <br> <br> Large Language Models, such as Meta’s LLaMA 3.2, are general-purpose AI systems capable of reading and interpreting text in a way that resembles human reasoning. Instead of focusing on one narrow task, they can analyze reviews holistically, identify themes, classify sentiment, and generate written insights from the data. <br> <br> In this analysis, customer reviews were provided to the model and it was asked to perform several higher-level tasks, including summarizing key themes, identifying common complaints, and suggesting potential actions for the business. The responses shown in this section were generated locally using LLaMA 3.2 through the Ollama framework and saved for analysis.")
 
     section_header("6.1 Zero-Shot Sentiment Classification", "No examples given, the LLM classifies from pure understanding")
     explain("In this test, we gave the LLM a review and simply asked: is this positive or negative? We did not show it any examples first. We did not teach it what Shea Homes reviews look like. We just asked it to figure it out on its own based on its general understanding of language. We tested this on a sample of 50 reviews, half positive and half negative, and compared it against the VADER tool from earlier.")
@@ -666,7 +664,7 @@ elif page == PAGES[6]:
     commentary("Few-shot prompting matched zero-shot at 76%, suggesting the LLM's pre-trained knowledge is already sufficient for this task and the examples didn't add much. Both LLM approaches beat VADER's 68%. In a production setting, the LLM would be more expensive to run at scale (6+ seconds per review vs. milliseconds for VADER), so the right choice depends on the volume and required accuracy.")
 
     section_header("6.3 Deep Review Intelligence", "The LLM reads reviews like a analyst")
-    explain("Instead of just saying positive or negative, we asked it to read each review and produce a full analysis: what category does this fall into, what are the key themes, what should the team do about it, and how urgent is it. This is the kind of work that would normally require a person to sit down, read the review carefully, and write up their findings. The LLM does it in seconds.")
+    explain("Instead of simply labeling reviews as positive or negative, we asked the LLM to perform a deeper analysis of each review. For every comment, the model identifies the likely sentiment category, extracts the main themes being discussed, suggests potential actions for the business, and estimates the urgency of the issue. <br> <br> This type of analysis would normally require a human analyst to carefully read the review and write a short assessment. A large language model can perform this same type of reasoning-based review analysis automatically and generate structured insights within seconds.")
 
     st.markdown('<div class="llm-card"><h4>Review: 1 star | Denver, NC</h4>', unsafe_allow_html=True)
     st.markdown("> _\"Because this review is going on a public website, I am limiting the review to a summary statement. Overall, the buying experience was poor...\"_")
@@ -685,7 +683,7 @@ elif page == PAGES[6]:
     commentary("The LLM correctly identified categories, extracts specific themes, and generates actionable next steps. The urgency ratings are appropriate: the 21-month delayed build is flagged as Critical while the brief negative summary is Low. At scale, this could process hundreds of reviews into a structured database of categorized issues and action items.")
 
     section_header("6.4 AI-Generated Executive Briefing", "LLaMA reads 20 recent reviews, writes a 2-minute briefing")
-    explain("For this final piece, we gave the LLM the 20 most recent customer reviews and asked it to write a two-minute executive briefing. No human edited the output. This is what it produced on its own.")
+    explain("For this final demonstration, we provided the LLM with the 20 most recent customer reviews and asked it to generate a brief executive-style summary of the key insights. The goal was to simulate the type of quick briefing a leadership team might receive when reviewing recent customer feedback. <br> <br> The model was given only the review text and asked to produce a two-minute executive briefing highlighting major themes, notable concerns, and overall sentiment. The output shown below was generated entirely by the model without human editin")
     st.markdown("*Based on reviews from Feb 2026 to Mar 2026*")
     st.markdown("""**OVERALL PULSE:** Customers are extremely satisfied overall (70% five-star), but with notable concerns on quality and warranty service.
 
@@ -714,7 +712,7 @@ elif page == PAGES[6]:
 
     with col1:
         if page != PAGES[0]:
-            if st.button("⇽ Previous"):
+            if st.button("⇽ Back"):
                 previous_page()
 
     with col3:
@@ -741,6 +739,3 @@ elif page == PAGES[7]:
         ds = r["date"].strftime("%b %d, %Y") if pd.notna(r["date"]) else "N/A"
         st.markdown(f"**{stars_display}** &nbsp;&nbsp; {r['location']} &nbsp;&nbsp; {ds} &nbsp;&nbsp; <span style='color:{scol};font-weight:600'>{r['vader_label']} ({r['vader_compound']:+.2f})</span>", unsafe_allow_html=True)
         st.markdown(f"> {str(r['review_text'])[:600]}{'...' if len(str(r['review_text']))>600 else ''}"); st.markdown("---")
-
-
-
