@@ -1,12 +1,3 @@
-"""
-Shea Homes Review Scraper
-Run directly: python shea_scraper.py
-
-Fixes from v1:
-  - Scores now parsed correctly (walks forward through DOM, regex extraction)
-  - Dates output as YYYY-MM-DD so Excel doesn't show ####
-"""
-
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup, NavigableString
 import random
@@ -21,7 +12,7 @@ from datetime import datetime
 # force unbuffered output
 os.environ["PYTHONUNBUFFERED"] = "1"
 
-# --- CONFIG ---
+# CONFIG
 BASE_URL = "https://www.newhomesource.com/builder/shea-homes/reviews/612"
 TOTAL_PAGES = 82
 MIN_DELAY = 2
@@ -75,7 +66,7 @@ def extract_scores(h4, next_h4=None):
 
 
 def parse_date(date_str):
-    """Convert 'February 23, 2026' to '2026-02-23' for Excel compatibility."""
+    """Convert 'February 23, 2026' to '2026-02-23'."""
     try:
         dt = datetime.strptime(date_str.strip(), "%B %d, %Y")
         return dt.strftime("%Y-%m-%d")
@@ -213,7 +204,6 @@ def scrape():
 
         page = context.new_page()
 
-        log("Warming up browser session...")
         page.goto(BASE_URL, wait_until="domcontentloaded", timeout=60000)
         page.wait_for_timeout(3000)
 
@@ -373,7 +363,6 @@ def scrape():
     if os.path.exists(CHECKPOINT_FILE):
         os.remove(CHECKPOINT_FILE)
 
-    log("Done! Ready for sentiment analysis.")
     return unique
 
 
