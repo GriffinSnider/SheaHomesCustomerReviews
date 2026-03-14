@@ -10,7 +10,7 @@
 
 NewHomeSource.com is one of the largest online marketplaces for newly built homes in the United States. Prospective buyers use it to browse floor plans, compare communities, and read verified reviews from actual homebuyers after closing. For a production homebuilder like Shea Homes, these reviews are a direct input into purchase behavior: a buyer evaluating two builders in the same market will often let this feedback serve as a tiebreaker.
 
-This project applies a layered suite of NLP and machine learning techniques to systematically extract business intelligence from 2,039 Shea Homes customer reviews spanning September 2020 through March 2026. The goal is to transform unstructured text data, invisible to traditional reporting tools, into actionable insights about customer satisfaction, recurring themes, and predictive indicators of buyer sentiment.
+This project applies a layered suite of NLP and machine learning techniques to extract business intelligence from 2,039 Shea Homes customer reviews spanning September 2020 through March 2026. The goal is to transform unstructured text data, invisible to traditional reporting tools, into actionable insights about customer satisfaction, recurring themes, and predictive indicators of buyer sentiment.
 
 ## Analysis Pipeline
 
@@ -20,7 +20,7 @@ The analysis is structured in four progressive layers, each building on the last
 Dual-method sentiment analysis using VADER (lexicon-based) and TextBlob (pattern-based) to quantify the emotional tone of every review. Provides compound sentiment scores, polarity, and subjectivity measures across the full dataset.
 
 **Layer 2: Topic Extraction**
-TF-IDF keyword analysis and Latent Dirichlet Allocation (LDA) topic modeling to surface what customers talk about most frequently, what distinguishes positive reviews from negative ones, and what latent themes emerge across communities.
+TF-IDF keyword analysis and Latent Dirichlet Allocation (LDA) topic modeling to find what customers talk about most frequently, what distinguishes positive reviews from negative ones, and what themes emerge across communities.
 
 **Layer 3: Predictive Classification**
 Machine learning classifiers (Logistic Regression, Random Forest, Gradient Boosting) trained to predict customer satisfaction level from review text alone. Achieves 84.1% accuracy, enabling identification of at-risk reviews before they surface in aggregate ratings.
@@ -33,8 +33,8 @@ LLaMA 3.2 (via Ollama) applied for zero-shot and few-shot sentiment classificati
 - Average rating across all Shea Homes reviews: **4.21 / 5.0**
 - Gradient Boosting classifier accuracy: **84.1%**
 - Approximately **22%** of reviews flagged as at-risk based on model predictions
-- TF-IDF and topic modeling reveal construction quality and post-close warranty service as the primary drivers of negative sentiment
-- LLM-based classification demonstrates competitive performance with traditional ML on this task
+- TF-IDF and topic modeling show construction quality and post-close warranty service as the primary drivers of negative sentiment
+- LLM-based classification shows competitive performance with traditional ML on this task
 
 ## Tech Stack
 
@@ -49,18 +49,6 @@ LLaMA 3.2 (via Ollama) applied for zero-shot and few-shot sentiment classificati
 | Visualization | Matplotlib, Seaborn, Plotly |
 | Dashboard | Streamlit |
 | Deployment | Streamlit Community Cloud |
-
-## Repository Structure
-
-```
-SheaHomesCustomerReviews/
-├── SheaHomesCustomerReviewAnalysis.ipynb   # Full analytical notebook
-├── streamlit_app.py                        # Interactive dashboard application
-├── shea_scraper.py                         # NewHomeSource web scraper
-├── shea_homes_reviews.csv                  # Dataset (2,039 reviews)
-├── requirements.txt                        # Python dependencies
-└── .devcontainer/                          # Dev container configuration
-```
 
 ## How to Run
 
@@ -82,10 +70,10 @@ Note: The LLM analysis section (Layer 4) requires [Ollama](https://ollama.com/) 
 
 ## Data Source
 
-All reviews were scraped from the [Shea Homes builder profile on NewHomeSource.com](https://www.newhomesource.com/builder/shea-homes/about). The dataset contains publicly available, verified homebuyer reviews including review text, star ratings, reviewer names, community names, and review dates. No private or personally identifiable information beyond public display names was collected.
+All reviews were scraped from the [Shea Homes builder profile on NewHomeSource.com](https://www.newhomesource.com/builder/shea-homes/about). The dataset contains verified homebuyer reviews including review text, star ratings, reviewer names, community names, and review dates. No private or personally identifiable information beyond public display names was collected.
 
 ## Author
 
 **Griffin Snider**
-MS in Business Analytics (Big Data), Arizona State University, W.P. Carey School of Business
+
 [LinkedIn](https://www.linkedin.com/in/griffinsnider/) | [GitHub](https://github.com/GriffinSnider)
