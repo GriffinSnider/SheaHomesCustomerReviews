@@ -70,7 +70,7 @@ Note: The LLM analysis section (Layer 4) requires [Ollama](https://ollama.com/) 
 
 ## Data Source
 
-All reviews were scraped from the [Shea Homes builder profile on NewHomeSource.com](https://www.newhomesource.com/builder/shea-homes/about). The dataset contains verified homebuyer reviews including review text, star ratings, reviewer names, community names, and review dates. No private or personally identifiable information beyond public display names was collected.
+All reviews were scraped from the [Shea Homes builder profile on NewHomeSource.com](https://www.newhomesource.com/builder/shea-homes/reviews/612/). The dataset contains verified homebuyer reviews including review text, star ratings, reviewer names, community names, and review dates. No private or personally identifiable information beyond public display names was collected.
 
 ## Author
 
