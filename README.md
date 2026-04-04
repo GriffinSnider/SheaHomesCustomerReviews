@@ -68,6 +68,23 @@ jupyter notebook SheaHomesCustomerReviewAnalysis.ipynb
 
 Note: The LLM analysis section (Layer 4) requires [Ollama](https://ollama.com/) installed locally with the LLaMA 3.2 model pulled (`ollama pull llama3.2`). All other sections run with standard Python packages.
 
+## Refreshing the Data
+
+The dataset is a static CSV snapshot. To pull the latest reviews and retrain the models:
+
+```bash
+# 1. Re-scrape reviews from NewHomeSource.com
+python shea_scraper.py
+
+# 2. Retrain the ML models on the updated data
+python train_models.py
+
+# 3. (Optional) Launch the app locally to verify
+streamlit run streamlit_app.py
+```
+
+The scraper writes to `shea_homes_reviews.csv` and the training script writes to `models/`. Both are used by the Streamlit app at runtime. The sidebar displays the latest review date and the date the CSV was last modified so you can tell at a glance how fresh the data is.
+
 ## Data Source
 
 All reviews were scraped from the [Shea Homes builder profile on NewHomeSource.com](https://www.newhomesource.com/builder/shea-homes/reviews/612/). The dataset contains verified homebuyer reviews including review text, star ratings, reviewer names, community names, and review dates. No private or personally identifiable information beyond public display names was collected.

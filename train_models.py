@@ -22,6 +22,8 @@ from scipy.sparse import hstack, csr_matrix
 nltk.download("vader_lexicon", quiet=True)
 
 EXTRA_FEATURES = ["vader_compound", "word_count", "exclamation_count"]
+# Keep apostrophes so contractions like "don't" stay as one token
+TOKEN_PATTERN = r"(?u)\b\w[\w']+\b"
 
 
 def build_hybrid_features(X_texts, X_extras, tfidf_model, fit=False):
@@ -61,7 +63,8 @@ def main():
     )
 
     tfidf_b = TfidfVectorizer(
-        max_features=5000, ngram_range=(1, 2), stop_words="english"
+        max_features=5000, ngram_range=(1, 2), stop_words="english",
+        token_pattern=TOKEN_PATTERN,
     )
     X_train_hyb = build_hybrid_features(
         X_train_b["review_text"].astype(str), X_train_b[EXTRA_FEATURES], tfidf_b, fit=True
@@ -110,7 +113,8 @@ def main():
     )
 
     tfidf_3 = TfidfVectorizer(
-        max_features=5000, ngram_range=(1, 2), stop_words="english"
+        max_features=5000, ngram_range=(1, 2), stop_words="english",
+        token_pattern=TOKEN_PATTERN,
     )
     X_train_3h = build_hybrid_features(
         X_train_3["review_text"].astype(str), X_train_3[EXTRA_FEATURES], tfidf_3, fit=True

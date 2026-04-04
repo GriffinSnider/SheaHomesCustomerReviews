@@ -102,7 +102,7 @@ def load_and_process(path):
     return df
 
 @st.cache_data(show_spinner="Computing model predictions...")
-def compute_model_results(df):
+def compute_model_results(df, _model_mtime=None):
     """Load saved models and compute all predictive metrics from the data."""
     model_dir = os.path.join(os.path.dirname(__file__), "models")
     meta = joblib.load(os.path.join(model_dir, "metadata.joblib"))
@@ -184,7 +184,7 @@ def compute_model_results(df):
     return {"binary": binary, "three": three, "top_words": top_words}
 
 @st.cache_resource(show_spinner=False)
-def load_prediction_models():
+def load_prediction_models(_model_mtime=None):
     """Load the trained models and vectorizers for real-time prediction."""
     model_dir = os.path.join(os.path.dirname(__file__), "models")
     meta = joblib.load(os.path.join(model_dir, "metadata.joblib"))
@@ -261,7 +261,7 @@ def get_stop_words():
 def compute_topics(texts, n_topics=6):
     from sklearn.feature_extraction.text import CountVectorizer; from sklearn.decomposition import LatentDirichletAllocation
     sw = get_stop_words()
-    vec = CountVectorizer(max_features=2000, stop_words=list(sw), min_df=5, max_df=0.7, ngram_range=(1,2))
+    vec = CountVectorizer(max_features=2000, stop_words=list(sw), min_df=5, max_df=0.7, ngram_range=(1,2), token_pattern=r"(?u)\b\w[\w']+\b")
     dtm = vec.fit_transform(texts.astype(str)); fnames = vec.get_feature_names_out()
     lda = LatentDirichletAllocation(n_components=n_topics, random_state=42, max_iter=25, learning_method="online"); lda.fit(dtm)
     tkws = [[fnames[i] for i in t.argsort()[-10:][::-1]] for t in lda.components_]
@@ -739,8 +739,10 @@ elif page == PAGES[5]:
     section_header("5.1 At-Risk Customer Detection (Binary)", "Satisfied (4-5 star) vs At-Risk (1-3 star)")
     explain("This analysis simplifies the prediction problem into two groups: satisfied customers who gave four or five stars, and at-risk customers who gave one to three stars. The goal is to determine whether the language in a review alone can identify customers who may be dissatisfied. <br> <br> The left chart shows overall model performance. Accuracy (blue) measures the percentage of reviews the model classified correctly. Macro F1 (yellow) is a balanced metric that evaluates how well the model performs across both groups rather than favoring the larger group of satisfied customers. <br> <br>The right chart focuses specifically on detecting at-risk customers. At-Risk Recall (red) measures how many dissatisfied customers the model successfully identifies. At-Risk Precision (gray) measures how often the model is correct when it flags a review as at-risk. ")
 
-    # Load model results dynamically
-    mr = compute_model_results(df)
+    # Load model results dynamically (mtime busts cache when models are retrained)
+    _meta_path = os.path.join(os.path.dirname(__file__), "models", "metadata.joblib")
+    _model_mtime = os.path.getmtime(_meta_path) if os.path.exists(_meta_path) else 0
+    mr = compute_model_results(df, _model_mtime=_model_mtime)
     b = mr["binary"]; t = mr["three"]
 
     # Model comparison chart
@@ -880,7 +882,8 @@ elif page == PAGES[7]:
         submitted = st.form_submit_button("Submit")
 
     if submitted and user_text.strip():
-        pred_models = load_prediction_models()
+        _mp = os.path.join(os.path.dirname(__file__), "models", "metadata.joblib")
+        pred_models = load_prediction_models(_model_mtime=os.path.getmtime(_mp) if os.path.exists(_mp) else 0)
         result = predict_review(user_text.strip(), pred_models)
 
         pc1, pc2, pc3 = st.columns(3)
