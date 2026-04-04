@@ -8,7 +8,10 @@ from collections import Counter
 import streamlit.components.v1 as components
 from streamlit_scroll_to_top import scroll_to_here
 import re
+import os
 import warnings
+import joblib
+from scipy.sparse import hstack, csr_matrix
 
 warnings.filterwarnings("ignore")
 
@@ -71,7 +74,7 @@ def clean_fig(fig, height=400):
     return fig
 
 # ---------------------------------------------------------------------------
-@st.cache_data(show_spinner="Loading 2,039 reviews...")
+@st.cache_data(show_spinner="Loading reviews...")
 def load_and_process(path):
     df = pd.read_csv(path, encoding="utf-8-sig")
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -94,8 +97,158 @@ def load_and_process(path):
     df["textblob_subjectivity"] = df["review_text"].apply(lambda x: TextBlob(str(x)).sentiment.subjectivity)
     df["textblob_label"] = df["textblob_polarity"].apply(lambda x: "Positive" if x > 0.05 else ("Negative" if x < -0.05 else "Neutral"))
     df["risk_class"] = df["total_score"].apply(lambda x: "Satisfied (4-5)" if x >= 4 else "At-Risk (1-3)")
+    df["exclamation_count"] = df["review_text"].apply(lambda x: str(x).count("!"))
     df["mismatch"] = ((df["total_score"]>=4)&(df["vader_compound"]<-0.05)) | ((df["total_score"]<=2)&(df["vader_compound"]>0.5))
     return df
+
+@st.cache_data(show_spinner="Computing model predictions...")
+def compute_model_results(df):
+    """Load saved models and compute all predictive metrics from the data."""
+    model_dir = os.path.join(os.path.dirname(__file__), "models")
+    meta = joblib.load(os.path.join(model_dir, "metadata.joblib"))
+    extra_features = meta["extra_features"]
+
+    def _load(name):
+        return joblib.load(os.path.join(model_dir, name))
+
+    def _build_features(X_texts, X_extras, tfidf):
+        text_feat = tfidf.transform(X_texts)
+        return hstack([text_feat, csr_matrix(X_extras.values)])
+
+    # Target columns
+    df = df.copy()
+    df["risk_class"] = df["total_score"].apply(lambda x: "Satisfied (4-5 Stars)" if x >= 4 else "At-Risk (1-3 Stars)")
+    def rating_bucket(s):
+        if s <= 2: return "Negative (1-2 Stars)"
+        elif s == 3: return "Neutral (3 Stars)"
+        else: return "Positive (4-5 Stars)"
+    df["rating_class"] = df["total_score"].apply(rating_bucket)
+
+    # ── Binary models ────────────────────────────────────────────────────
+    tfidf_b = _load("binary_tfidf.joblib")
+    test_idx_b = meta["binary_test_idx"]
+    X_test_b = df.loc[test_idx_b, ["review_text"] + extra_features]
+    y_test_b = df.loc[test_idx_b, "risk_class"]
+    X_test_hyb = _build_features(X_test_b["review_text"].astype(str), X_test_b[extra_features], tfidf_b)
+
+    model_names = ["Logistic Regression", "Random Forest", "Gradient Boosting"]
+    binary = {"acc": [], "f1": [], "recall": [], "prec": [], "best_report": ""}
+    best_acc = 0
+    from sklearn.metrics import accuracy_score, f1_score, classification_report
+    for name in model_names:
+        fname = name.lower().replace(" ", "_")
+        clf = _load(f"binary_{fname}.joblib")
+        y_pred = clf.predict(X_test_hyb)
+        acc = accuracy_score(y_test_b, y_pred)
+        f1 = f1_score(y_test_b, y_pred, average="macro")
+        report = classification_report(y_test_b, y_pred, output_dict=True, zero_division=0)
+        ar = report.get("At-Risk (1-3 Stars)", {})
+        binary["acc"].append(round(acc * 100, 1))
+        binary["f1"].append(round(f1, 3))
+        binary["recall"].append(round(ar.get("recall", 0) * 100))
+        binary["prec"].append(round(ar.get("precision", 0) * 100))
+        if acc > best_acc:
+            best_acc = acc
+            binary["best_name"] = name
+            binary["best_report"] = classification_report(y_test_b, y_pred, zero_division=0)
+
+    # ── Three-class models ───────────────────────────────────────────────
+    tfidf_3 = _load("three_class_tfidf.joblib")
+    test_idx_3 = meta["three_test_idx"]
+    X_test_3 = df.loc[test_idx_3, ["review_text"] + extra_features]
+    y_test_3 = df.loc[test_idx_3, "rating_class"]
+    X_test_3h = _build_features(X_test_3["review_text"].astype(str), X_test_3[extra_features], tfidf_3)
+
+    three = {"acc": [], "f1": [], "neg_r": [], "neu_r": [], "pos_r": []}
+    for name in model_names:
+        fname = name.lower().replace(" ", "_")
+        clf = _load(f"three_{fname}.joblib")
+        y_pred = clf.predict(X_test_3h)
+        acc = accuracy_score(y_test_3, y_pred)
+        f1 = f1_score(y_test_3, y_pred, average="macro")
+        report = classification_report(y_test_3, y_pred, output_dict=True, zero_division=0)
+        three["acc"].append(round(acc * 100, 1))
+        three["f1"].append(round(f1, 3))
+        three["neg_r"].append(round(report.get("Negative (1-2 Stars)", {}).get("recall", 0) * 100))
+        three["neu_r"].append(round(report.get("Neutral (3 Stars)", {}).get("recall", 0) * 100))
+        three["pos_r"].append(round(report.get("Positive (4-5 Stars)", {}).get("recall", 0) * 100))
+
+    # ── Feature importance from 3-class Logistic Regression ──────────────
+    lr_3 = _load("three_logistic_regression.joblib")
+    feature_names = np.array(list(tfidf_3.get_feature_names_out()) + extra_features)
+    top_words = {}
+    for i, label in enumerate(lr_3.classes_):
+        top_idx = lr_3.coef_[i].argsort()[-10:][::-1]
+        top_words[label] = [(feature_names[j], round(lr_3.coef_[i][j], 3)) for j in top_idx]
+
+    return {"binary": binary, "three": three, "top_words": top_words}
+
+@st.cache_resource(show_spinner=False)
+def load_prediction_models():
+    """Load the trained models and vectorizers for real-time prediction."""
+    model_dir = os.path.join(os.path.dirname(__file__), "models")
+    meta = joblib.load(os.path.join(model_dir, "metadata.joblib"))
+    tfidf_b = joblib.load(os.path.join(model_dir, "binary_tfidf.joblib"))
+    tfidf_3 = joblib.load(os.path.join(model_dir, "three_class_tfidf.joblib"))
+    gb_b = joblib.load(os.path.join(model_dir, "binary_gradient_boosting.joblib"))
+    gb_3 = joblib.load(os.path.join(model_dir, "three_gradient_boosting.joblib"))
+    lr_3 = joblib.load(os.path.join(model_dir, "three_logistic_regression.joblib"))
+    return {
+        "tfidf_b": tfidf_b, "tfidf_3": tfidf_3,
+        "gb_b": gb_b, "gb_3": gb_3, "lr_3": lr_3,
+        "extra_features": meta["extra_features"],
+    }
+
+def predict_review(text, models):
+    """Score a single review text through both binary and 3-class models."""
+    import nltk; from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    sia = SentimentIntensityAnalyzer()
+    vader = sia.polarity_scores(str(text))
+    compound = vader["compound"]
+    word_count = len(str(text).split())
+    excl_count = str(text).count("!")
+    extra = np.array([[compound, word_count, excl_count]])
+
+    # Binary prediction
+    tf_b = models["tfidf_b"].transform([str(text)])
+    X_b = hstack([tf_b, csr_matrix(extra)])
+    binary_label = models["gb_b"].predict(X_b)[0]
+    binary_proba = models["gb_b"].predict_proba(X_b)[0]
+    binary_classes = models["gb_b"].classes_
+
+    # 3-class prediction
+    tf_3 = models["tfidf_3"].transform([str(text)])
+    X_3 = hstack([tf_3, csr_matrix(extra)])
+    three_label = models["gb_3"].predict(X_3)[0]
+    three_proba = models["gb_3"].predict_proba(X_3)[0]
+    three_classes = models["gb_3"].classes_
+
+    # Top signal words from LR coefficients for the predicted 3-class
+    lr = models["lr_3"]
+    feature_names = list(models["tfidf_3"].get_feature_names_out()) + models["extra_features"]
+    tfidf_vec = tf_3.toarray()[0]
+    class_idx = list(lr.classes_).index(three_label)
+    coefs = lr.coef_[class_idx]
+    # Only consider words actually present in this text (nonzero TF-IDF or extra features)
+    full_vec = np.concatenate([tfidf_vec, extra[0]])
+    active_mask = full_vec != 0
+    active_indices = np.where(active_mask)[0]
+    if len(active_indices) > 0:
+        weighted = [(feature_names[j], coefs[j] * full_vec[j]) for j in active_indices if coefs[j] > 0]
+        weighted.sort(key=lambda x: x[1], reverse=True)
+        signal_words = weighted[:8]
+    else:
+        signal_words = []
+
+    return {
+        "vader_compound": compound,
+        "vader_label": "Positive" if compound >= 0.05 else ("Negative" if compound <= -0.05 else "Neutral"),
+        "binary_label": binary_label,
+        "binary_proba": dict(zip(binary_classes, binary_proba)),
+        "three_label": three_label,
+        "three_proba": dict(zip(three_classes, three_proba)),
+        "signal_words": signal_words,
+    }
 
 @st.cache_data
 def get_stop_words():
@@ -184,7 +337,7 @@ except FileNotFoundError:
 fdf = df.copy()
 
 PAGES = ["Overview", "Part 1: Summary Statistics", "Part 2: Data Evaluation", "Part 3: Sentiment Analysis",
-         "Part 4: Advanced NLP", "Part 5: Predictive Models", "Conclusion", "Review Explorer"]
+         "Part 4: Advanced NLP", "Part 5: Predictive Models", "Conclusion", "Live Prediction Tool", "Review Explorer"]
 
 
 def next_page():
@@ -581,9 +734,13 @@ elif page == PAGES[5]:
     section_header("5.1 At-Risk Customer Detection (Binary)", "Satisfied (4-5 star) vs At-Risk (1-3 star)")
     explain("This analysis simplifies the prediction problem into two groups: satisfied customers who gave four or five stars, and at-risk customers who gave one to three stars. The goal is to determine whether the language in a review alone can identify customers who may be dissatisfied. <br> <br> The left chart shows overall model performance. Accuracy (blue) measures the percentage of reviews the model classified correctly. Macro F1 (yellow) is a balanced metric that evaluates how well the model performs across both groups rather than favoring the larger group of satisfied customers. <br> <br>The right chart focuses specifically on detecting at-risk customers. At-Risk Recall (red) measures how many dissatisfied customers the model successfully identifies. At-Risk Precision (gray) measures how often the model is correct when it flags a review as at-risk. ")
 
+    # Load model results dynamically
+    mr = compute_model_results(df)
+    b = mr["binary"]; t = mr["three"]
+
     # Model comparison chart
     models = ["Logistic Regression","Random Forest","Gradient Boosting"]
-    acc = [81.4, 82.8, 84.1]; f1 = [0.753, 0.711, 0.757]; recall = [72, 43, 58]; prec = [56, 67, 66]
+    acc = b["acc"]; f1 = b["f1"]; recall = b["recall"]; prec = b["prec"]
     fig = make_subplots(rows=1, cols=2, subplot_titles=["Accuracy & Macro F1","At-Risk Recall & Precision"])
     fig.update_layout(title="Models")
     fig.add_trace(go.Bar(name="Accuracy %", x=models, y=acc, marker_color=SHEA_BLUE, text=[f"{v}%" for v in acc], textposition="outside"), row=1, col=1)
@@ -592,15 +749,17 @@ elif page == PAGES[5]:
     fig.add_trace(go.Bar(name="At-Risk Precision", x=models, y=prec, marker_color=NEUTRAL_GRAY, text=[f"{v}%" for v in prec], textposition="outside"), row=1, col=2)
     fig.update_yaxes(range=[0,105]); fig.update_layout(barmode="group"); clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
 
-    static_output(" RESULTS: Gradient Boosting (Best Model)\n============================================================\n                       precision    recall  f1-score   support\n\n  At-Risk (1-3 Stars)    0.66         0.58    0.62       90\nSatisfied (4-5 Stars)  0.88         0.92    0.90       318 \n \n accuracy                                    0.84       408\n            macro avg               0.77      0.75      0.76       408\n         weighted avg            0.83      0.84      0.84       408")
-    commentary("Gradient Boosting is the most accurate with 84.1% accuracy and the highest Macro F1 (0.757). It catches 58% of at-risk customers from text alone, with 66% precision, meaning when it flags someone as at-risk, it is right 2 out of 3 times. Logistic Regression has better at-risk recall (72%) but more false positives (56% precision). Random Forest is the weakest here because it struggles with the minority class, only catching 43% of at-risk customers despite high overall accuracy. The tradeoff between recall and precision depends on the business use case: if missing an at-risk customer is costly, Logistic Regression's higher recall may be preferable.")
+    best_name = b["best_name"]
+    best_idx = models.index(best_name)
+    static_output(f" RESULTS: {best_name} (Best Model)\n============================================================\n{b['best_report']}")
+    commentary(f"{best_name} is the most accurate with {acc[best_idx]}% accuracy and a Macro F1 of {f1[best_idx]:.3f}. It catches {recall[best_idx]}% of at-risk customers from text alone, with {prec[best_idx]}% precision, meaning when it flags someone as at-risk, it is right roughly {prec[best_idx]}% of the time. The tradeoff between recall and precision depends on the business use case: if missing an at-risk customer is costly, higher recall may be preferable even at the expense of more false positives.")
 
     section_header("5.2 Three-Class Prediction", "Negative (1-2 star) vs Neutral (3 star) vs Positive (4-5 star)")
     explain("This task is more challenging than the previous prediction. Instead of simply identifying satisfied versus at-risk customers, the model must now classify reviews into three groups: negative (1–2 stars), neutral (3 stars), and positive (4–5 stars). <br> <br> This is significantly harder because 3-star reviews are inherently ambiguous. Customers in this group are often neither strongly satisfied nor strongly dissatisfied, and their language tends to reflect a mix of positive and negative comments.<br> <br> The left chart again shows overall performance using accuracy (blue) and Macro F1 (yellow). These metrics summarize how well the model performs across all three categories. <br> <br> The right chart shows recall for each rating group. These values indicate how often the model correctly identifies negative, neutral, and positive reviews individually. This chart helps reveal whether a model is truly recognizing each category or simply predicting the most common outcome.")
 
     models3 = ["Logistic Regression","Random Forest","Gradient Boosting"]
-    acc3 = [76.2, 77.5, 79.2]; f1_3 = [0.561, 0.319, 0.510]
-    neg_r = [58, 3, 39]; neu_r = [37, 2, 15]; pos_r = [85, 99, 94]
+    acc3 = t["acc"]; f1_3 = t["f1"]
+    neg_r = t["neg_r"]; neu_r = t["neu_r"]; pos_r = t["pos_r"]
     fig = make_subplots(rows=1, cols=2, subplot_titles=["Accuracy & Macro F1","Recall by Class"])
     fig.add_trace(go.Bar(name="Accuracy %", x=models3, y=acc3, marker_color=SHEA_BLUE, text=[f"{v}%" for v in acc3], textposition="outside"), row=1, col=1)
     fig.add_trace(go.Bar(name="Macro F1", x=models3, y=[v*100 for v in f1_3], marker_color=SHEA_GOLD, text=[f"{v:.3f}" for v in f1_3], textposition="outside"), row=1, col=1)
@@ -608,31 +767,28 @@ elif page == PAGES[5]:
     fig.add_trace(go.Bar(name="Neu Recall", x=models3, y=neu_r, marker_color=NEU_YELLOW, text=[f"{v}%" for v in neu_r], textposition="outside"), row=1, col=2)
     fig.add_trace(go.Bar(name="Pos Recall", x=models3, y=pos_r, marker_color=POS_GREEN, text=[f"{v}%" for v in pos_r], textposition="outside"), row=1, col=2)
     fig.update_yaxes(range=[0,115]); fig.update_layout(barmode="group"); clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
-    commentary("These results show why overall accuracy alone is not sufficient for evaluating model performance. Gradient Boosting achieved the highest overall accuracy at 79.2%, but looking at the recall by class reveals important differences between the models. Random Forest performed poorly at identifying negative and neutral reviews, capturing only 3% of negative reviews and 2% of neutral reviews. In practice, it was largely predicting most reviews as positive and benefiting from the fact that positive reviews dominate the dataset. Logistic Regression provided the most balanced performance, correctly identifying 58% of negative reviews and 37% of neutral reviews, making it more useful for detecting dissatisfied customers. The key takeaway is that while predicting customer sentiment from text is feasible, neutral reviews remain the most difficult category to classify, since the language in 3-star reviews often contains a genuine mix of positive and negative signals.")
+    commentary("These results show why overall accuracy alone is not sufficient for evaluating model performance. Looking at recall by class reveals important differences between the models. Random Forest tends to struggle with minority classes, while Logistic Regression often provides the most balanced performance across all three categories, making it more useful for detecting dissatisfied customers. The key takeaway is that while predicting customer sentiment from text is feasible, neutral reviews remain the most difficult category to classify, since the language in 3-star reviews often contains a genuine mix of positive and negative signals.")
 
     section_header("5.3 Most Predictive Words by Category", "What language signals each rating level?")
     explain("When the prediction model evaluates a review, certain words influence its decision more than others. This section highlights the words that had the strongest impact on predicting each rating category. In simple terms, this analysis asks: which words most strongly signal that a review is negative, neutral, or positive? Longer bars indicate that a word had a stronger influence on the model’s prediction.")
 
+    top_words = mr["top_words"]
+    word_configs = [
+        ("Negative (1-2 Stars)", "Negative (1-2 star)", NEG_RED, "Negative Signals"),
+        ("Neutral (3 Stars)", "Neutral (3 star)", NEU_YELLOW, "Neutral Signals"),
+        ("Positive (4-5 Stars)", "Positive (4-5 star)", POS_GREEN, "Positive Signals"),
+    ]
     col1,col2,col3 = st.columns(3)
-    with col1:
-        st.markdown("**Negative (1-2 star)**")
-        neg_words = [("don",1.291),("workmanship average",1.272),("beware",1.231),("care",1.225),("repairs",1.163),("shea",1.136),("bad",1.032),("months",1.031),("appliances",0.941),("average",0.929)]
-        nw, nc = zip(*neg_words)
-        fig = go.Figure(go.Bar(y=list(nw)[::-1], x=list(nc)[::-1], orientation="h", marker_color=NEG_RED, text=[f"+{v:.3f}" for v in list(nc)[::-1]], textposition="inside"))
-        fig.update_xaxes(range=[0,1.6]); fig.update_layout(title="Negative Signals"); clean_fig(fig, 380); st.plotly_chart(fig, use_container_width=True)
-    with col2:
-        st.markdown("**Neutral (3 star)**")
-        neu_words = [("hoa",1.356),("unfortunately",1.199),("trust",1.090),("lovely home",1.073),("electrical",0.992),("kind",0.956),("lacking",0.935),("like",0.934),("nice home",0.922),("better",0.889)]
-        nuw, nuc = zip(*neu_words)
-        fig = go.Figure(go.Bar(y=list(nuw)[::-1], x=list(nuc)[::-1], orientation="h", marker_color=NEU_YELLOW, text=[f"+{v:.3f}" for v in list(nuc)[::-1]], textposition="inside"))
-        fig.update_xaxes(range=[0,1.6]); fig.update_layout(title="Neutral Signals"); clean_fig(fig, 380); st.plotly_chart(fig, use_container_width=True)
-    with col3:
-        st.markdown("**Positive (4-5 star)**")
-        pos_words = [("vader",1.539),("excellent",1.074),("experience",1.019),("professional",0.862),("great",0.810),("home",0.714),("helpful",0.683),("team",0.669),("informed",0.639),("awesome",0.631)]
-        pw, pc = zip(*pos_words)
-        fig = go.Figure(go.Bar(y=list(pw)[::-1], x=list(pc)[::-1], orientation="h", marker_color=POS_GREEN, text=[f"+{v:.3f}" for v in list(pc)[::-1]], textposition="inside"))
-        fig.update_xaxes(range=[0,1.8]); fig.update_layout(title="Positive Signals"); clean_fig(fig, 380); st.plotly_chart(fig, use_container_width=True)
-    commentary("The predictive words tell a story that aligns with everything else in this analysis. Negative signals are concrete and specific: 'repairs,' 'months,' 'appliances,' 'workmanship average.' Neutral reviews use hedging language: 'unfortunately,' 'lacking,' 'nice home' (faint praise), and 'better' (implying something could be improved). Positive signals are emotional and relational: 'excellent,' 'professional,' 'helpful,' 'team,' 'awesome.' Note that 'vader' appears as the strongest positive predictor because the VADER sentiment score was included as a numeric feature, and it strongly correlates with positive ratings.")
+    for col, (class_key, label, color, title) in zip([col1, col2, col3], word_configs):
+        with col:
+            st.markdown(f"**{label}**")
+            words = top_words.get(class_key, [])
+            if words:
+                ww, wc = zip(*words)
+                max_coef = max(wc) * 1.15
+                fig = go.Figure(go.Bar(y=list(ww)[::-1], x=list(wc)[::-1], orientation="h", marker_color=color, text=[f"+{v:.3f}" for v in list(wc)[::-1]], textposition="inside"))
+                fig.update_xaxes(range=[0, max_coef]); fig.update_layout(title=title); clean_fig(fig, 380); st.plotly_chart(fig, use_container_width=True)
+    commentary("The predictive words tell a story that aligns with everything else in this analysis. Negative signals tend to be concrete and specific, referencing repairs, construction issues, and wait times. Neutral reviews use hedging language that implies mixed feelings. Positive signals are emotional and relational, emphasizing the people and overall experience. Note that ‘vader’ may appear as a strong positive predictor because the VADER sentiment score was included as a numeric feature, and it strongly correlates with positive ratings.")
 
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
@@ -702,10 +858,119 @@ elif page == PAGES[6]:
         if page != PAGES[-1]:
             if st.button("Next ⇾"):
                 next_page()
+
+
 # ===================================================================
 elif page == PAGES[7]:
+    st.title("Live Prediction Tool")
+    section_header("Satisfaction Predictor", "Paste any review text to get a real-time ML prediction")
+
+    with st.form("prediction_form"):
+        user_text = st.text_area(
+            "Enter review text",
+            placeholder="e.g. The sales team was great but after we moved in, warranty repairs took months and nobody returned our calls.",
+            height=120,
+            key="predictor_input",
+        )
+        submitted = st.form_submit_button("Submit")
+
+    if submitted and user_text.strip():
+        pred_models = load_prediction_models()
+        result = predict_review(user_text.strip(), pred_models)
+
+        pc1, pc2, pc3 = st.columns(3)
+
+        with pc1:
+            b_label = result["binary_label"]
+            b_color = POS_GREEN if "Satisfied" in b_label else NEG_RED
+            b_conf = result["binary_proba"][b_label] * 100
+            st.markdown(
+                f"<div style='text-align:center;padding:12px 8px;background:white;border-radius:10px;border:2px solid {b_color}'>"
+                f"<span style='font-size:0.85rem;color:#555'>Binary Prediction</span><br>"
+                f"<span style='font-size:1.3rem;font-weight:700;color:{b_color}'>{b_label}</span><br>"
+                f"<span style='font-size:0.85rem;color:#888'>{b_conf:.0f}% confidence</span></div>",
+                unsafe_allow_html=True
+            )
+
+        with pc2:
+            t_label = result["three_label"]
+            t_color = POS_GREEN if "Positive" in t_label else (NEG_RED if "Negative" in t_label else NEU_YELLOW)
+            t_conf = result["three_proba"][t_label] * 100
+            st.markdown(
+                f"<div style='text-align:center;padding:12px 8px;background:white;border-radius:10px;border:2px solid {t_color}'>"
+                f"<span style='font-size:0.85rem;color:#555'>3-Class Prediction</span><br>"
+                f"<span style='font-size:1.3rem;font-weight:700;color:{t_color}'>{t_label}</span><br>"
+                f"<span style='font-size:0.85rem;color:#888'>{t_conf:.0f}% confidence</span></div>",
+                unsafe_allow_html=True
+            )
+
+        with pc3:
+            v_label = result["vader_label"]
+            v_color = POS_GREEN if v_label == "Positive" else (NEG_RED if v_label == "Negative" else NEU_YELLOW)
+            v_score = result["vader_compound"]
+            st.markdown(
+                f"<div style='text-align:center;padding:12px 8px;background:white;border-radius:10px;border:2px solid {v_color}'>"
+                f"<span style='font-size:0.85rem;color:#555'>VADER Sentiment</span><br>"
+                f"<span style='font-size:1.3rem;font-weight:700;color:{v_color}'>{v_label} ({v_score:+.2f})</span><br>"
+                f"<span style='font-size:0.85rem;color:#888'>compound score</span></div>",
+                unsafe_allow_html=True
+            )
+
+        st.markdown("")
+        with st.expander("Detailed confidence breakdown", expanded=submitted):
+            det1, det2 = st.columns(2)
+
+            with det1:
+                st.markdown("**Binary model**")
+                for cls in sorted(result["binary_proba"].keys()):
+                    pct = result["binary_proba"][cls] * 100
+                    c = POS_GREEN if "Satisfied" in cls else NEG_RED
+                    st.markdown(
+                        f"<span style='color:{c};font-weight:600'>{cls}</span>: {pct:.1f}%",
+                        unsafe_allow_html=True
+                    )
+                    st.progress(result["binary_proba"][cls])
+
+            with det2:
+                st.markdown("**3-class model**")
+                order = ["Negative (1-2 Stars)", "Neutral (3 Stars)", "Positive (4-5 Stars)"]
+                for cls in order:
+                    pct = result["three_proba"].get(cls, 0) * 100
+                    c = POS_GREEN if "Positive" in cls else (NEG_RED if "Negative" in cls else NEU_YELLOW)
+                    st.markdown(
+                        f"<span style='color:{c};font-weight:600'>{cls}</span>: {pct:.1f}%",
+                        unsafe_allow_html=True
+                    )
+                    st.progress(result["three_proba"].get(cls, 0))
+
+            if result["signal_words"]:
+                st.markdown("**Top signal words driving this prediction:**")
+                sw_text = " &nbsp;&nbsp; ".join([f"`{w}` (+{s:.2f})" for w, s in result["signal_words"]])
+                st.markdown(sw_text, unsafe_allow_html=True)
+
+    elif submitted and not user_text.strip():
+        st.warning("Please enter some review text before submitting.")
+
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 6, 1])
+
+    with col1:
+        if page != PAGES[0]:
+            if st.button("⇽ Back"):
+                previous_page()
+
+    with col3:
+        if page != PAGES[-1]:
+            if st.button("Next ⇾"):
+                next_page()
+
+# ===================================================================
+elif page == PAGES[8]:
     st.title("Review Explorer")
-    explain("Search, filter, and browse individual reviews with sentiment scores and star ratings.")
+    explain("Search, filter, and browse individual reviews with sentiment scores and star ratings. Use the prediction tool below to analyze any text, or scroll down to browse existing reviews.")
+
+    # ── Existing Review Browser ──────────────────────────────────────────
+    section_header("Browse Reviews", "Search, filter, and sort the full dataset")
     search = st.text_input("Search reviews", placeholder="keyword (e.g. 'warranty', 'paint', 'delay')")
     col1,col2,col3 = st.columns(3)
     with col1: sent_f = st.multiselect("Sentiment",["Positive","Neutral","Negative"],default=["Positive","Neutral","Negative"])

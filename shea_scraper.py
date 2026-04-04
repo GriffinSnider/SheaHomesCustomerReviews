@@ -14,7 +14,7 @@ os.environ["PYTHONUNBUFFERED"] = "1"
 
 # CONFIG
 BASE_URL = "https://www.newhomesource.com/builder/shea-homes/reviews/612"
-TOTAL_PAGES = 82
+TOTAL_PAGES = 83
 MIN_DELAY = 2
 MAX_DELAY = 5
 MAX_RETRIES = 3
