@@ -287,22 +287,46 @@ def compute_aspects(texts):
         results[asp] = {"mentions":n, "pct":n/len(texts) if len(texts) else 0, "avg_sentiment":np.mean(sents) if sents else 0, "pct_negative":np.mean([s<-0.05 for s in sents]) if sents else 0}
     return results
 
-@st.cache_data
+@st.cache_resource(show_spinner=False)
+def _load_spacy():
+    import spacy
+    return spacy.load("en_core_web_sm", disable=["parser", "lemmatizer"])
+
+@st.cache_data(show_spinner="Extracting employee mentions...")
 def compute_employees(texts, scores, locations, states):
-    import nltk; nltk.download("vader_lexicon", quiet=True); from nltk.sentiment.vader import SentimentIntensityAnalyzer; sia = SentimentIntensityAnalyzer()
-    NOT_NAMES = {"The","We","Our","They","He","She","It","My","Very","This","That","From","Would","Every","And","But","For","Not","All","Are","Was","Has","Had","Been","Will","Can","Just","Great","Good","Best","Much","Only","After","With","When","What","How","Which","Their","There","Here","Also","Even","More","Most","Some","Any","Other","Each","Into","Over","About","Through","During","Before","Below","Between","Both","Never","Excellent","Amazing","Outstanding","Quality","Home","Homes","Shea","Everything","Beautiful","Whole","Highly","Professional","Building","Really","First","New","Love","Thank","Loved","Entire","Process","Experience","Always","Team","Customer","Service","Construction","Warranty","Sales","Buying","House","Community","Floor","Plan","Recommend","Well","Working","Year","Time","Day","Way","Lot","Overall","Trilogy","Made","Make","Keep","Know","Come","Take","Give","Look","Help","Work","Need","Feel","Call","Move","Try","Start","Still","Covid","HOA","Design","Manager","Super","Then","Now","Once","Since","While","These","Many","Poor","Field","Thanks","Mortgage","Builder","One","You","However","Encanterra","Mesa","Phoenix","Denver","Vegas","Livermore","Tracy","Being","Pleased","Awesome","Wonderful","Especially","Told","Going","Done","Took","Did","Though","Absolutely","Definitely","Nothing","Something","Another","Little","Positive","Negative","Impressed","Terrible","Horrible","Worst","Fabulous","Perfect","Quick","Responsive","Happy","Smooth","Several","Few","Its","Sheas","Ive","Weve","Communication","Were","Everyone","Ranch","Please","Although","Center","Having","Shae","Despite","Dont","Unfortunately","Your","His","Lots","Wickenburg","Ill","Follow","Dunes","Thats","Multiple","Project","Post","Lake"}
+    import nltk; nltk.download("vader_lexicon", quiet=True)
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer; sia = SentimentIntensityAnalyzer()
+    nlp = _load_spacy()
+    # Minimal exclusions: company/brand names and common false positives spaCy mislabels as PERSON
+    NOT_PERSON = {"Shea", "Sheas", "Trilogy", "Covid", "Encanterra", "HOA", "Shae"}
     recs = []
-    for text, sc, loc, st_ in zip(texts, scores, locations, states):
-        words = str(text).split()
-        for i, w in enumerate(words):
-            c = re.sub(r"[^A-Za-z]", "", w)
-            if c and c[0].isupper() and len(c)>=3 and c not in NOT_NAMES and c.isalpha() and not c.isupper():
-                ctx = " ".join(words[max(0,i-5):min(len(words),i+6)])
-                recs.append({"name":c,"sentiment":sia.polarity_scores(ctx)["compound"],"total_score":sc,"location":loc,"state":st_})
-    if not recs: return pd.DataFrame()
+    for doc, sc, loc, st_ in zip(nlp.pipe([str(t) for t in texts], batch_size=200), scores, locations, states):
+        for ent in doc.ents:
+            if ent.label_ != "PERSON":
+                continue
+            # Use only the first name (single token) to group mentions consistently
+            first = ent.text.split()[0]
+            first = re.sub(r"[^A-Za-z]", "", first)
+            if first in NOT_PERSON:
+                continue
+            if len(first) < 3 or not first[0].isupper():
+                continue
+            # Sentiment from a context window around the entity
+            start = max(0, ent.start - 5)
+            end = min(len(doc), ent.end + 5)
+            ctx = doc[start:end].text
+            recs.append({"name": first, "sentiment": sia.polarity_scores(ctx)["compound"],
+                         "total_score": sc, "location": loc, "state": st_})
+    if not recs:
+        return pd.DataFrame()
     edf = pd.DataFrame(recs)
-    s = edf.groupby("name").agg(mentions=("sentiment","count"),avg_sentiment=("sentiment","mean"),avg_stars=("total_score","mean"),top_location=("location",lambda x: x.mode().iloc[0] if len(x)>0 else "Unknown")).sort_values("mentions",ascending=False)
-    return s[s["mentions"]>=5]
+    s = edf.groupby("name").agg(
+        mentions=("sentiment", "count"),
+        avg_sentiment=("sentiment", "mean"),
+        avg_stars=("total_score", "mean"),
+        top_location=("location", lambda x: x.mode().iloc[0] if len(x) > 0 else "Unknown"),
+    ).sort_values("mentions", ascending=False)
+    return s[s["mentions"] >= 5]
 
 @st.cache_data
 def compute_ngrams(texts, sw_list, n=2, top_k=15):
