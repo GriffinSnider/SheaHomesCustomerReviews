@@ -383,7 +383,12 @@ with st.sidebar:
     page = st.session_state.page
 
     st.markdown("---")
-    st.caption(f"**{len(fdf):,}** total reviews");
+    st.caption(f"**{len(fdf):,}** total reviews")
+    latest_date = fdf["date"].max()
+    if pd.notna(latest_date):
+        st.caption(f"Latest review: **{latest_date.strftime('%b %d, %Y')}**")
+    csv_mod = pd.Timestamp(os.path.getmtime(DATA_PATH), unit="s")
+    st.caption(f"Data refreshed: **{csv_mod.strftime('%b %d, %Y')}**")
     st.markdown("---")
     st.caption("Built by **Griffin Snider**");
 
