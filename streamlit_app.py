@@ -514,6 +514,82 @@ elif page == PAGES[1]:
     fig.update_layout(title="Rating Category Correlations"); clean_fig(fig,450); st.plotly_chart(fig, use_container_width=True)
     commentary("All categories are highly correlated, showing that customers who rate one dimension poorly tend to rate everything poorly. This suggests the overall experience is somewhat holistic: a bad construction experience drags down trust, value, and responsiveness perceptions too.")
 
+    section_header("1.7 Geographic Deep Dive", "Choropleth map and per-dimension ratings by state")
+    explain("The earlier geographic charts showed review volume and average overall ratings. This section maps satisfaction across the country and breaks scores down by rating dimension (Quality, Trustworthiness, Value, Responsiveness) to reveal which markets underperform on specific operational areas. States with fewer than 10 reviews are excluded.")
+
+    # Build state-level data
+    geo = fdf.groupby("state").agg(
+        n=("total_score","count"),
+        overall=("total_score","mean"),
+        quality=("quality","mean"),
+        trust=("trustworthiness","mean"),
+        value=("value","mean"),
+        resp=("responsiveness","mean"),
+    ).reset_index()
+    geo = geo[geo["n"] >= 10].copy()
+    geo["hover"] = geo.apply(lambda r: (
+        f"{r['state']} ({r['n']:.0f} reviews)<br>"
+        f"Overall: {r['overall']:.2f}<br>"
+        f"Quality: {r['quality']:.2f}<br>"
+        f"Trust: {r['trust']:.2f}<br>"
+        f"Value: {r['value']:.2f}<br>"
+        f"Responsiveness: {r['resp']:.2f}"
+    ), axis=1)
+
+    # Choropleth map
+    fig = go.Figure(go.Choropleth(
+        locations=geo["state"],
+        locationmode="USA-states",
+        z=geo["overall"],
+        zmin=3.5, zmax=4.6,
+        colorscale=[[0, NEG_RED], [0.5, NEU_YELLOW], [1, POS_GREEN]],
+        colorbar_title="Avg Rating",
+        text=geo["hover"],
+        hoverinfo="text",
+    ))
+    fig.update_layout(
+        geo=dict(scope="usa", bgcolor="white", lakecolor="white"),
+        margin=dict(l=0, r=0, t=40, b=0),
+    )
+    fig.update_layout(title="Average Overall Rating by State"); clean_fig(fig, 420)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Per-dimension comparison: grouped bar chart
+    dims = ["quality", "trust", "value", "resp"]
+    dim_labels = ["Quality", "Trustworthiness", "Value", "Responsiveness"]
+    dim_colors = [SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED]
+    geo_sorted = geo.sort_values("overall")
+
+    fig = go.Figure()
+    for dim, label, color in zip(dims, dim_labels, dim_colors):
+        fig.add_trace(go.Bar(
+            name=label,
+            y=geo_sorted["state"],
+            x=geo_sorted[dim],
+            orientation="h",
+            marker_color=color,
+            text=[f"{v:.2f}" for v in geo_sorted[dim]],
+            textposition="outside",
+        ))
+    fig.add_vline(x=4.0, line_dash="dash", line_color="gray", opacity=0.4)
+    fig.update_xaxes(range=[3.0, 5.0])
+    fig.update_layout(barmode="group", title="Rating Dimensions by State (10+ reviews)")
+    clean_fig(fig, max(420, len(geo_sorted) * 55))
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Lowest dimension per state table
+    geo_dims = geo_sorted.copy()
+    dim_map = {"quality": "Quality", "trust": "Trustworthiness", "value": "Value", "resp": "Responsiveness"}
+    geo_dims["weakest_dim"] = geo_dims[dims].idxmin(axis=1).map(dim_map)
+    geo_dims["weakest_score"] = geo_dims[dims].min(axis=1)
+    weak_display = geo_dims[["state", "n", "overall", "weakest_dim", "weakest_score"]].copy()
+    weak_display.columns = ["State", "Reviews", "Overall Avg", "Weakest Dimension", "Weakest Score"]
+    weak_display["Overall Avg"] = weak_display["Overall Avg"].map("{:.2f}".format)
+    weak_display["Weakest Score"] = weak_display["Weakest Score"].map("{:.2f}".format)
+    st.dataframe(weak_display.sort_values("Weakest Score"), use_container_width=True, hide_index=True)
+
+    commentary("The map and dimension breakdown reveal that satisfaction is not uniform across markets. Washington and Idaho stand out with lower scores across multiple dimensions, particularly Value and Quality. Responsiveness varies the most between states: Virginia leads at 4.60 while Washington trails at 3.69, a gap of nearly a full point. Value is the weakest dimension in the majority of markets, suggesting it may be a company-wide opportunity rather than a regional issue. These patterns can help prioritize where operational improvements would have the most impact.")
+
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
 
