@@ -101,6 +101,45 @@ def load_and_process(path):
     df["mismatch"] = ((df["total_score"]>=4)&(df["vader_compound"]<-0.05)) | ((df["total_score"]<=2)&(df["vader_compound"]>0.5))
     return df
 
+BUILDER_DISPLAY_NAMES = {
+    "kb-home": "KB Home",
+    "lennar": "Lennar",
+    "pulte-homes": "Pulte Homes",
+    "shea-homes": "Shea Homes",
+}
+
+BUILDER_COLORS = {
+    "Shea Homes": "#1a5276",
+    "KB Home": "#c0392b",
+    "Lennar": "#27ae60",
+    "Pulte Homes": "#8e44ad",
+}
+
+@st.cache_data(show_spinner="Loading all builder reviews...")
+def load_all_builders():
+    """Load review CSVs for every builder with lightweight processing (VADER only, no TextBlob)."""
+    import glob as _glob
+    import nltk; nltk.download("vader_lexicon", quiet=True)
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    sia = SentimentIntensityAnalyzer()
+
+    frames = []
+    review_dir = os.path.join(os.path.dirname(__file__), "builder_reviews")
+    for path in sorted(_glob.glob(os.path.join(review_dir, "*_reviews.csv"))):
+        slug = os.path.basename(path).replace("_reviews.csv", "")
+        bdf = pd.read_csv(path, encoding="utf-8-sig")
+        bdf["date"] = pd.to_datetime(bdf["date"], errors="coerce")
+        bdf["word_count"] = bdf["review_text"].apply(lambda x: len(str(x).split()))
+        bdf["state"] = bdf["location"].str.extract(r",\s*([A-Z]{2})$")
+        bdf["quarter"] = bdf["date"].dt.to_period("Q").astype(str)
+        scores = bdf["review_text"].apply(lambda x: sia.polarity_scores(str(x)))
+        bdf["vader_compound"] = scores.apply(lambda x: x["compound"])
+        bdf["vader_label"] = bdf["vader_compound"].apply(lambda x: "Positive" if x >= 0.05 else ("Negative" if x <= -0.05 else "Neutral"))
+        bdf["risk_class"] = bdf["total_score"].apply(lambda x: "Satisfied (4-5)" if x >= 4 else "At-Risk (1-3)")
+        bdf["builder"] = BUILDER_DISPLAY_NAMES.get(slug, slug)
+        frames.append(bdf)
+    return pd.concat(frames, ignore_index=True)
+
 @st.cache_data(show_spinner="Computing model predictions...")
 def compute_model_results(df, _model_mtime=None):
     """Load saved models and compute all predictive metrics from the data."""
@@ -351,17 +390,17 @@ def get_neg_distinctive(neg_texts, pos_texts, sw_list):
     return sorted(result, key=lambda x: -x[2])[:20]
 
 # ---------------------------------------------------------------------------
-DATA_PATH = "shea_homes_reviews.csv"
+DATA_PATH = "builder_reviews/shea-homes_reviews.csv"
 try:
     df = load_and_process(DATA_PATH)
 except FileNotFoundError:
-    st.error(f"**Could not find `{DATA_PATH}`.** Place `shea_homes_reviews.csv` in the same directory as `app.py`.");
+    st.error(f"**Could not find `{DATA_PATH}`.** Place builder CSV files in the `builder_reviews/` directory.");
     st.stop()
 
 fdf = df.copy()
 
 PAGES = ["Overview", "Part 1: Summary Statistics", "Part 2: Data Evaluation", "Part 3: Sentiment Analysis",
-         "Part 4: Advanced NLP", "Part 5: Predictive Models", "Conclusion", "Live Prediction Tool", "Review Explorer"]
+         "Part 4: Advanced NLP", "Part 5: Predictive Models", "Builder Comparison", "Conclusion", "Live Prediction Tool", "Review Explorer"]
 
 
 def next_page():
@@ -948,6 +987,165 @@ elif page == PAGES[5]:
                 next_page()
 # ===================================================================
 elif page == PAGES[6]:
+    st.title("Builder Comparison")
+    explain("Side-by-side analysis of Shea Homes against three major competitors — KB Home, Lennar, and Pulte Homes — using the same NLP pipeline applied to each builder's customer reviews on NewHomeSource.com.")
+
+    all_df = load_all_builders()
+    builders = sorted(all_df["builder"].unique())
+
+    # ── Scorecard row ──────────────────────────────────────────────────
+    section_header("Overall Ratings", "Average scores across all review dimensions")
+    cols = st.columns(len(builders))
+    for i, b in enumerate(builders):
+        bslice = all_df[all_df["builder"] == b]
+        with cols[i]:
+            avg = bslice["total_score"].mean()
+            st.metric(b, f"{avg:.2f} / 5.0", f"{len(bslice):,} reviews")
+
+    # ── Star rating distribution ───────────────────────────────────────
+    section_header("Star Rating Distribution", "How each builder's ratings are distributed across 1–5 stars")
+    dist = all_df.groupby(["builder", "total_score"]).size().reset_index(name="count")
+    totals = all_df.groupby("builder").size().reset_index(name="total")
+    dist = dist.merge(totals, on="builder")
+    dist["pct"] = dist["count"] / dist["total"] * 100
+    fig = px.bar(dist, x="total_score", y="pct", color="builder", barmode="group",
+                 color_discrete_map=BUILDER_COLORS,
+                 labels={"total_score": "Star Rating", "pct": "% of Reviews", "builder": "Builder"})
+    fig.update_xaxes(dtick=1)
+    clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
+
+    # ── Sub-score comparison ───────────────────────────────────────────
+    section_header("Rating Dimensions", "Average quality, trustworthiness, value, and responsiveness by builder")
+    dims = ["quality", "trustworthiness", "value", "responsiveness"]
+    dim_data = []
+    for b in builders:
+        bslice = all_df[all_df["builder"] == b]
+        for d in dims:
+            dim_data.append({"Builder": b, "Dimension": d.title(), "Avg Score": bslice[d].mean()})
+    dim_df = pd.DataFrame(dim_data)
+    fig = px.bar(dim_df, x="Dimension", y="Avg Score", color="Builder", barmode="group",
+                 color_discrete_map=BUILDER_COLORS)
+    fig.update_yaxes(range=[0, 5])
+    clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
+
+    commentary_lines = []
+    for d in dims:
+        best = dim_df[dim_df["Dimension"] == d.title()].sort_values("Avg Score", ascending=False).iloc[0]
+        worst = dim_df[dim_df["Dimension"] == d.title()].sort_values("Avg Score", ascending=True).iloc[0]
+        commentary_lines.append(f"<b>{d.title()}</b>: {best['Builder']} leads ({best['Avg Score']:.2f}), {worst['Builder']} trails ({worst['Avg Score']:.2f})")
+    commentary(" · ".join(commentary_lines))
+
+    # ── Sentiment comparison ───────────────────────────────────────────
+    section_header("Sentiment Analysis", "VADER compound sentiment comparison across builders")
+    sent_data = []
+    for b in builders:
+        bslice = all_df[all_df["builder"] == b]
+        for label in ["Positive", "Neutral", "Negative"]:
+            ct = (bslice["vader_label"] == label).sum()
+            sent_data.append({"Builder": b, "Sentiment": label, "Count": ct, "Pct": ct / len(bslice) * 100})
+    sent_df = pd.DataFrame(sent_data)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        avg_sent = all_df.groupby("builder")["vader_compound"].mean().reset_index()
+        avg_sent.columns = ["Builder", "Avg VADER Compound"]
+        avg_sent = avg_sent.sort_values("Avg VADER Compound", ascending=True)
+        fig = px.bar(avg_sent, x="Avg VADER Compound", y="Builder", orientation="h",
+                     color="Builder", color_discrete_map=BUILDER_COLORS)
+        fig.update_layout(title="Avg VADER Compound Score", showlegend=False)
+        fig.update_xaxes(range=[0, 1])
+        clean_fig(fig, 350); st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        neg_pct = sent_df[sent_df["Sentiment"] == "Negative"][["Builder", "Pct"]].sort_values("Pct", ascending=True)
+        fig = px.bar(neg_pct, x="Pct", y="Builder", orientation="h",
+                     color="Builder", color_discrete_map=BUILDER_COLORS)
+        fig.update_layout(title="% Negative Reviews", showlegend=False)
+        clean_fig(fig, 350); st.plotly_chart(fig, use_container_width=True)
+
+    # ── Sentiment stacked bar ──────────────────────────────────────────
+    color_map = {"Positive": POS_GREEN, "Neutral": NEU_YELLOW, "Negative": NEG_RED}
+    fig = px.bar(sent_df, x="Builder", y="Pct", color="Sentiment", barmode="stack",
+                 color_discrete_map=color_map,
+                 labels={"Pct": "% of Reviews"})
+    fig.update_layout(title="Sentiment Breakdown by Builder")
+    clean_fig(fig, 400); st.plotly_chart(fig, use_container_width=True)
+
+    # ── Review volume over time ────────────────────────────────────────
+    section_header("Review Volume Over Time", "Quarterly review counts by builder")
+    all_df_t = all_df.dropna(subset=["date"]).copy()
+    all_df_t["quarter"] = all_df_t["date"].dt.to_period("Q").astype(str)
+    vol = all_df_t.groupby(["quarter", "builder"]).size().reset_index(name="count")
+    fig = px.line(vol, x="quarter", y="count", color="builder",
+                  color_discrete_map=BUILDER_COLORS,
+                  labels={"quarter": "Quarter", "count": "Reviews", "builder": "Builder"})
+    fig.update_layout(title="Review Volume by Quarter")
+    clean_fig(fig, 400); st.plotly_chart(fig, use_container_width=True)
+
+    # ── Sentiment trend over time ──────────────────────────────────────
+    sent_trend = all_df_t.groupby(["quarter", "builder"])["vader_compound"].mean().reset_index()
+    fig = px.line(sent_trend, x="quarter", y="vader_compound", color="builder",
+                  color_discrete_map=BUILDER_COLORS,
+                  labels={"quarter": "Quarter", "vader_compound": "Avg VADER Compound", "builder": "Builder"})
+    fig.update_layout(title="Avg Sentiment Over Time")
+    clean_fig(fig, 400); st.plotly_chart(fig, use_container_width=True)
+
+    # ── Geographic overlap ─────────────────────────────────────────────
+    section_header("Geographic Footprint", "States where each builder has reviews")
+    geo = all_df.dropna(subset=["state"]).groupby(["state", "builder"]).agg(
+        reviews=("total_score", "size"), avg_rating=("total_score", "mean")
+    ).reset_index()
+
+    fig = px.bar(geo, x="state", y="reviews", color="builder", barmode="group",
+                 color_discrete_map=BUILDER_COLORS,
+                 labels={"state": "State", "reviews": "Reviews", "builder": "Builder"})
+    fig.update_layout(title="Review Count by State")
+    clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
+
+    # Head-to-head in shared states
+    shared_states = geo.groupby("state")["builder"].nunique()
+    shared_states = shared_states[shared_states > 1].index.tolist()
+    if shared_states:
+        shared_geo = geo[geo["state"].isin(shared_states)]
+        fig = px.bar(shared_geo, x="state", y="avg_rating", color="builder", barmode="group",
+                     color_discrete_map=BUILDER_COLORS,
+                     labels={"state": "State", "avg_rating": "Avg Rating", "builder": "Builder"})
+        fig.update_layout(title="Avg Rating in Shared Markets")
+        fig.update_yaxes(range=[0, 5])
+        clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
+
+    # ── At-risk review rate ────────────────────────────────────────────
+    section_header("At-Risk Reviews", "Percentage of reviews rated 1–3 stars (at-risk) by builder")
+    risk = all_df.groupby("builder").apply(lambda g: (g["total_score"] <= 3).mean() * 100).reset_index(name="at_risk_pct")
+    risk = risk.sort_values("at_risk_pct", ascending=True)
+    fig = px.bar(risk, x="at_risk_pct", y="builder", orientation="h",
+                 color="builder", color_discrete_map=BUILDER_COLORS,
+                 labels={"at_risk_pct": "% At-Risk (1-3 Stars)", "builder": "Builder"})
+    fig.update_layout(showlegend=False, title="At-Risk Review Rate")
+    clean_fig(fig, 350); st.plotly_chart(fig, use_container_width=True)
+
+    # ── Key takeaway ───────────────────────────────────────────────────
+    best_overall = all_df.groupby("builder")["total_score"].mean().idxmax()
+    best_score = all_df.groupby("builder")["total_score"].mean().max()
+    lowest_neg = sent_df[sent_df["Sentiment"] == "Negative"].sort_values("Pct").iloc[0]["Builder"]
+    finding(
+        f"<b>Key finding:</b> {best_overall} has the highest average rating ({best_score:.2f}/5.0) "
+        f"and {lowest_neg} has the lowest share of negative reviews among the four builders compared. "
+        f"The full Shea Homes deep-dive analysis is available in Parts 1–5 of this project."
+    )
+
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 6, 1])
+    with col1:
+        if page != PAGES[0]:
+            if st.button("⇽ Back"):
+                previous_page()
+    with col3:
+        if page != PAGES[-1]:
+            if st.button("Next ⇾"):
+                next_page()
+
+# ===================================================================
+elif page == PAGES[7]:
     st.title("Conclusion")
     st.markdown("---")
     explain(
@@ -1011,7 +1209,7 @@ elif page == PAGES[6]:
 
 
 # ===================================================================
-elif page == PAGES[7]:
+elif page == PAGES[8]:
     st.title("Live Prediction Tool")
     section_header("Satisfaction Predictor", "Paste any review text to get a real-time ML prediction")
 
@@ -1116,7 +1314,7 @@ elif page == PAGES[7]:
                 next_page()
 
 # ===================================================================
-elif page == PAGES[8]:
+elif page == PAGES[9]:
     st.title("Review Explorer")
     explain("Search, filter, and browse individual reviews with sentiment scores and star ratings. Use the prediction tool below to analyze any text, or scroll down to browse existing reviews.")
 
