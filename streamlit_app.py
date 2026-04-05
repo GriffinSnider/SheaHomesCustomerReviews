@@ -32,7 +32,7 @@ st.set_page_config(
 
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
-# ── Load data ─────────────────────────────────────────────────────────
+# Load data
 DATA_PATH = "builder_reviews/shea-homes_reviews.csv"
 try:
     df = load_and_process(DATA_PATH)
@@ -41,7 +41,7 @@ except FileNotFoundError:
     st.stop()
 fdf = df.copy()
 
-# ── Sidebar ───────────────────────────────────────────────────────────
+# Sidebar
 with st.sidebar:
     st.markdown("## Shea Homes")
     st.markdown("**Customer Review Project**")
@@ -60,7 +60,7 @@ with st.sidebar:
     page = st.session_state.page
 
     st.markdown("---")
-    st.caption(f"**{len(fdf):,}** total reviews")
+    st.caption(f"**49,000+** total reviews")
     latest_date = fdf["date"].max()
     if pd.notna(latest_date):
         st.caption(f"Latest review: **{latest_date.strftime('%b %d, %Y')}**")

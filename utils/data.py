@@ -10,54 +10,69 @@ from scipy.sparse import hstack, csr_matrix
 from utils.config import BUILDER_DISPLAY_NAMES
 
 
-@st.cache_data(show_spinner="Loading reviews...")
-def load_and_process(path):
-    df = pd.read_csv(path, encoding="utf-8-sig")
+def _get_sia():
+    """Initialise VADER once and return the analyser."""
+    import nltk
+    nltk.download("vader_lexicon", quiet=True)
+    nltk.download("stopwords", quiet=True)
+    from nltk.sentiment.vader import SentimentIntensityAnalyzer
+    return SentimentIntensityAnalyzer()
+
+
+def _add_base_columns(df, sia):
+    """Shared processing applied to every builder CSV: dates, VADER, labels."""
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["word_count"] = df["review_text"].apply(lambda x: len(str(x).split()))
-    df["char_count"] = df["review_text"].apply(lambda x: len(str(x)))
     df["state"] = df["location"].str.extract(r",\s*([A-Z]{2})$")
-    df["year"] = df["date"].dt.year
-    df["year_month"] = df["date"].dt.to_period("M").astype(str)
     df["quarter"] = df["date"].dt.to_period("Q").astype(str)
-    import nltk; nltk.download("vader_lexicon", quiet=True); nltk.download("stopwords", quiet=True)
-    from nltk.sentiment.vader import SentimentIntensityAnalyzer; from textblob import TextBlob
-    sia = SentimentIntensityAnalyzer()
     scores = df["review_text"].apply(lambda x: sia.polarity_scores(str(x)))
     df["vader_compound"] = scores.apply(lambda x: x["compound"])
     df["vader_pos"] = scores.apply(lambda x: x["pos"])
     df["vader_neg"] = scores.apply(lambda x: x["neg"])
     df["vader_neu"] = scores.apply(lambda x: x["neu"])
-    df["vader_label"] = df["vader_compound"].apply(lambda x: "Positive" if x >= 0.05 else ("Negative" if x <= -0.05 else "Neutral"))
+    df["vader_label"] = df["vader_compound"].apply(
+        lambda x: "Positive" if x >= 0.05 else ("Negative" if x <= -0.05 else "Neutral")
+    )
+    df["risk_class"] = df["total_score"].apply(
+        lambda x: "Satisfied (4-5)" if x >= 4 else "At-Risk (1-3)"
+    )
+    return df
+
+
+@st.cache_data(show_spinner="Loading reviews...")
+def load_and_process(path):
+    sia = _get_sia()
+    df = pd.read_csv(path, encoding="utf-8-sig")
+    df = _add_base_columns(df, sia)
+    # Shea-only extras
+    df["char_count"] = df["review_text"].apply(lambda x: len(str(x)))
+    df["year"] = df["date"].dt.year
+    df["year_month"] = df["date"].dt.to_period("M").astype(str)
+    from textblob import TextBlob
     df["textblob_polarity"] = df["review_text"].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
     df["textblob_subjectivity"] = df["review_text"].apply(lambda x: TextBlob(str(x)).sentiment.subjectivity)
-    df["textblob_label"] = df["textblob_polarity"].apply(lambda x: "Positive" if x > 0.05 else ("Negative" if x < -0.05 else "Neutral"))
-    df["risk_class"] = df["total_score"].apply(lambda x: "Satisfied (4-5)" if x >= 4 else "At-Risk (1-3)")
+    df["textblob_label"] = df["textblob_polarity"].apply(
+        lambda x: "Positive" if x > 0.05 else ("Negative" if x < -0.05 else "Neutral")
+    )
     df["exclamation_count"] = df["review_text"].apply(lambda x: str(x).count("!"))
-    df["mismatch"] = ((df["total_score"]>=4)&(df["vader_compound"]<-0.05)) | ((df["total_score"]<=2)&(df["vader_compound"]>0.5))
+    df["mismatch"] = (
+        ((df["total_score"] >= 4) & (df["vader_compound"] < -0.05))
+        | ((df["total_score"] <= 2) & (df["vader_compound"] > 0.5))
+    )
     return df
 
 
 @st.cache_data(show_spinner="Loading all builder reviews...")
 def load_all_builders():
     import glob as _glob
-    import nltk; nltk.download("vader_lexicon", quiet=True)
-    from nltk.sentiment.vader import SentimentIntensityAnalyzer
-    sia = SentimentIntensityAnalyzer()
+    sia = _get_sia()
 
     frames = []
     review_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "builder_reviews")
     for path in sorted(_glob.glob(os.path.join(review_dir, "*_reviews.csv"))):
         slug = os.path.basename(path).replace("_reviews.csv", "")
         bdf = pd.read_csv(path, encoding="utf-8-sig")
-        bdf["date"] = pd.to_datetime(bdf["date"], errors="coerce")
-        bdf["word_count"] = bdf["review_text"].apply(lambda x: len(str(x).split()))
-        bdf["state"] = bdf["location"].str.extract(r",\s*([A-Z]{2})$")
-        bdf["quarter"] = bdf["date"].dt.to_period("Q").astype(str)
-        scores = bdf["review_text"].apply(lambda x: sia.polarity_scores(str(x)))
-        bdf["vader_compound"] = scores.apply(lambda x: x["compound"])
-        bdf["vader_label"] = bdf["vader_compound"].apply(lambda x: "Positive" if x >= 0.05 else ("Negative" if x <= -0.05 else "Neutral"))
-        bdf["risk_class"] = bdf["total_score"].apply(lambda x: "Satisfied (4-5)" if x >= 4 else "At-Risk (1-3)")
+        bdf = _add_base_columns(bdf, sia)
         bdf["builder"] = BUILDER_DISPLAY_NAMES.get(slug, slug)
         frames.append(bdf)
     return pd.concat(frames, ignore_index=True)
