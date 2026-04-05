@@ -647,6 +647,81 @@ elif page == PAGES[1]:
     _weakest_dim_mode = geo_dims["weakest_dim"].mode().iloc[0] if not geo_dims.empty else "Value"
     commentary(f"The map and dimension breakdown reveal that satisfaction is not uniform across markets. Responsiveness varies the most between states: {_resp_best['state']} leads at {_resp_best['resp']:.2f} while {_resp_worst['state']} trails at {_resp_worst['resp']:.2f}, a gap of {_resp_best['resp'] - _resp_worst['resp']:.2f} points. {_weakest_dim_mode} is the weakest dimension in the majority of markets, suggesting it may be a company-wide opportunity rather than a regional issue. These patterns can help prioritize where operational improvements would have the most impact.")
 
+    # ── 1.8  Community Leaderboard ─────────────────────────────────────
+    section_header("1.8 Community Leaderboard", "Ranking Shea communities by satisfaction and at-risk rate")
+    explain("This leaderboard ranks every Shea Homes community (city) by average rating and percentage of at-risk reviews (1–3 stars). Communities with fewer than 5 reviews are excluded to avoid small-sample noise. Use the toggles to sort by different metrics and surface geographic outliers.")
+
+    MIN_REVIEWS_LB = 5
+    comm = fdf.groupby("location").agg(
+        reviews=("total_score", "size"),
+        avg_rating=("total_score", "mean"),
+        avg_sentiment=("vader_compound", "mean"),
+        pct_at_risk=("total_score", lambda x: (x <= 3).mean() * 100),
+        pct_5_star=("total_score", lambda x: (x == 5).mean() * 100),
+        avg_quality=("quality", "mean"),
+        avg_value=("value", "mean"),
+        avg_resp=("responsiveness", "mean"),
+    ).reset_index()
+    comm = comm[comm["reviews"] >= MIN_REVIEWS_LB].copy()
+    comm.columns = ["Community", "Reviews", "Avg Rating", "Avg Sentiment", "% At-Risk", "% 5-Star", "Avg Quality", "Avg Value", "Avg Responsiveness"]
+
+    lb_col1, lb_col2 = st.columns(2)
+    with lb_col1:
+        lb_sort = st.selectbox("Sort by", ["Avg Rating", "% At-Risk", "Avg Sentiment", "% 5-Star", "Reviews"], index=0)
+    with lb_col2:
+        lb_order = st.radio("Order", ["Best first", "Worst first"], horizontal=True)
+
+    ascending = lb_order == "Worst first" if lb_sort != "% At-Risk" else lb_order == "Best first"
+    comm_sorted = comm.sort_values(lb_sort, ascending=ascending)
+
+    # Format for display
+    comm_display = comm_sorted.copy()
+    for col in ["Avg Rating", "Avg Sentiment", "Avg Quality", "Avg Value", "Avg Responsiveness"]:
+        comm_display[col] = comm_display[col].map("{:.2f}".format)
+    for col in ["% At-Risk", "% 5-Star"]:
+        comm_display[col] = comm_display[col].map("{:.1f}%".format)
+
+    st.dataframe(comm_display, use_container_width=True, hide_index=True, height=460)
+
+    # Visual: top 5 vs bottom 5
+    if len(comm_sorted) >= 10:
+        top5 = comm_sorted.head(5)
+        bot5 = comm_sorted.tail(5)
+        lb_fig_data = pd.concat([top5.assign(_group="Top 5"), bot5.assign(_group="Bottom 5")])
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                y=top5["Community"], x=top5["Avg Rating"].astype(float) if top5["Avg Rating"].dtype == object else top5["Avg Rating"],
+                orientation="h", marker_color=POS_GREEN, text=[f"{v:.2f}" for v in comm_sorted.head(5)["Avg Rating"]], textposition="outside"
+            ))
+            fig.update_xaxes(range=[0, 5.3])
+            fig.update_layout(title=f"Top 5 Communities by {lb_sort}")
+            clean_fig(fig, 300); st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                y=bot5["Community"], x=bot5["Avg Rating"].astype(float) if bot5["Avg Rating"].dtype == object else bot5["Avg Rating"],
+                orientation="h", marker_color=NEG_RED, text=[f"{v:.2f}" for v in comm_sorted.tail(5)["Avg Rating"]], textposition="outside"
+            ))
+            fig.update_xaxes(range=[0, 5.3])
+            fig.update_layout(title=f"Bottom 5 Communities by {lb_sort}")
+            clean_fig(fig, 300); st.plotly_chart(fig, use_container_width=True)
+
+    # Dynamic commentary
+    _lb_best = comm_sorted.iloc[0]
+    _lb_worst = comm_sorted.iloc[-1]
+    _high_risk = comm[comm["% At-Risk"] > 30]
+    _risk_note = f" {len(_high_risk)} communities have an at-risk rate above 30%." if len(_high_risk) > 0 else " No community has an at-risk rate above 30%."
+    commentary(
+        f"Among the {len(comm)} communities with {MIN_REVIEWS_LB}+ reviews, "
+        f"<b>{_lb_best['Community']}</b> leads with an avg rating of {float(_lb_best['Avg Rating']):.2f} "
+        f"({int(_lb_best['Reviews'])} reviews), while <b>{_lb_worst['Community']}</b> trails at "
+        f"{float(_lb_worst['Avg Rating']):.2f} ({int(_lb_worst['Reviews'])} reviews).{_risk_note} "
+        f"Regional managers can use this ranking to identify which communities may need operational attention and which represent best-practice models."
+    )
+
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
 
