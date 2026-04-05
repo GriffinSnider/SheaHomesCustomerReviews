@@ -38,7 +38,7 @@ def build_hybrid_features(X_texts, X_extras, tfidf_model, fit=False):
 
 def main():
     # Load data
-    df = pd.read_csv("shea_homes_reviews.csv", encoding="utf-8-sig")
+    df = pd.read_csv("builder_reviews/shea-homes_reviews.csv", encoding="utf-8-sig")
     print(f"Loaded {len(df)} reviews")
 
     # Feature engineering
