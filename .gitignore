@@ -1,3 +1,6 @@
 .devcontainer/
 .ipynb_checkpoints/
 .DS_Store
+.venv/
+.idea/
+__pycache__/ 
