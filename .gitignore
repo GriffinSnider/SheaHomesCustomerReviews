@@ -3,4 +3,5 @@
 .DS_Store
 .venv/
 .idea/
+anaconda_projects/
 __pycache__/ 
