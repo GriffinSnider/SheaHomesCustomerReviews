@@ -14,7 +14,7 @@ This project applies NLP and machine learning to 49,000+ customer reviews across
 
 ## Analysis Pipeline
 
-The analysis runs in four layers:
+The analysis runs in five layers:
 
 **Layer 1: Sentiment Scoring**
 Dual-method sentiment analysis using VADER (lexicon-based) and TextBlob (pattern-based) to quantify the emotional tone of every review. Produces compound sentiment scores, polarity, and subjectivity measures across the full dataset.
