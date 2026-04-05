@@ -5,7 +5,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from utils.config import SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW, PALETTE_5
+from utils.config import (
+    SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW, PALETTE_5,
+    SATISFIED_MIN_STARS, MIN_REVIEWS_STATE, MIN_REVIEWS_COMMUNITY,
+)
 from utils.components import section_header, explain, commentary, clean_fig, nav_buttons
 
 
@@ -59,8 +62,8 @@ def render(df, fdf, page):
         stc = fdf["state"].value_counts().reset_index(); stc.columns=["state","count"]
         fig = px.bar(stc,y="state",x="count",orientation="h",color_discrete_sequence=[SHEA_BLUE],text="count"); fig.update_traces(textposition="inside"); fig.update_layout(title="Reviews by State"); clean_fig(fig,max(350,len(stc)*45)); st.plotly_chart(fig, use_container_width=True)
     with col2:
-        sts = fdf.groupby("state")["total_score"].agg(["mean","count"]).reset_index(); sts = sts[sts["count"]>=10].sort_values("mean")
-        sts["color"] = sts["mean"].apply(lambda v: POS_GREEN if v>=4 else (NEU_YELLOW if v>=3 else NEG_RED))
+        sts = fdf.groupby("state")["total_score"].agg(["mean","count"]).reset_index(); sts = sts[sts["count"]>=MIN_REVIEWS_STATE].sort_values("mean")
+        sts["color"] = sts["mean"].apply(lambda v: POS_GREEN if v>=SATISFIED_MIN_STARS else (NEU_YELLOW if v>=3 else NEG_RED))
         fig = go.Figure(go.Bar(y=sts["state"],x=sts["mean"],orientation="h",marker_color=sts["color"],text=[f"{v:.2f}" for v in sts["mean"]],textposition="inside"))
         fig.add_vline(x=4.0,line_dash="dash",line_color="gray",opacity=0.4); fig.update_xaxes(range=[0,5.5]); fig.update_layout(title="Avg Score by State (10+ reviews)"); clean_fig(fig,max(350,len(sts)*45)); st.plotly_chart(fig, use_container_width=True)
     _state_counts = fdf["state"].value_counts()
@@ -100,7 +103,7 @@ def render(df, fdf, page):
         value=("value","mean"),
         resp=("responsiveness","mean"),
     ).reset_index()
-    geo = geo[geo["n"] >= 10].copy()
+    geo = geo[geo["n"] >= MIN_REVIEWS_STATE].copy()
     geo["hover"] = geo.apply(lambda r: (
         f"{r['state']} ({r['n']:.0f} reviews)<br>"
         f"Overall: {r['overall']:.2f}<br>"
@@ -168,12 +171,12 @@ def render(df, fdf, page):
     section_header("1.8 Community Leaderboard", "Ranking Shea communities by satisfaction and at-risk rate")
     explain("This leaderboard ranks every Shea Homes community (city) by average rating and percentage of at-risk reviews (1–3 stars). Communities with fewer than 5 reviews are excluded to avoid small-sample noise. Use the toggles to sort by different metrics and surface geographic outliers.")
 
-    MIN_REVIEWS_LB = 5
+    MIN_REVIEWS_LB = MIN_REVIEWS_COMMUNITY
     comm = fdf.groupby("location").agg(
         reviews=("total_score", "size"),
         avg_rating=("total_score", "mean"),
         avg_sentiment=("vader_compound", "mean"),
-        pct_at_risk=("total_score", lambda x: (x <= 3).mean() * 100),
+        pct_at_risk=("total_score", lambda x: (x < SATISFIED_MIN_STARS).mean() * 100),
         pct_5_star=("total_score", lambda x: (x == 5).mean() * 100),
         avg_quality=("quality", "mean"),
         avg_value=("value", "mean"),

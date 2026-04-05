@@ -1,5 +1,6 @@
 import streamlit as st
 
+from utils.config import SATISFIED_MIN_STARS
 from utils.components import section_header, explain, commentary, finding, nav_buttons
 
 
@@ -12,9 +13,9 @@ def render(df, fdf, page):
     # key findings
     section_header("Key Findings", "What the data revealed across five stages of analysis")
 
-    _c_pct_high = (fdf["total_score"] >= 4).mean()
-    _c_at_risk_n = (fdf["total_score"] <= 3).sum()
-    _c_at_risk_pct = (fdf["total_score"] <= 3).mean()
+    _c_pct_high = (fdf["total_score"] >= SATISFIED_MIN_STARS).mean()
+    _c_at_risk_n = (fdf["total_score"] < SATISFIED_MIN_STARS).sum()
+    _c_at_risk_pct = (fdf["total_score"] < SATISFIED_MIN_STARS).mean()
     finding(
         f"<b>1. Overall Customer Satisfaction Is Strong but Not Uniform</b><br>Shea Homes holds an average rating of {fdf['total_score'].mean():.2f} out of 5, with {_c_pct_high:.0%} of reviews at 4 or 5 stars. However, {_c_at_risk_n:,} reviews ({_c_at_risk_pct:.0%}) fall in the 1–3 star range, representing a meaningful segment of at-risk customers. All five rating dimensions (Overall, Quality, Trust, Value, Responsiveness) are highly correlated, meaning a poor experience in one area tends to drag down perceptions across the board.")
 

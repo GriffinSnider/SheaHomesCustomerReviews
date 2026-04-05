@@ -19,6 +19,19 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import accuracy_score, f1_score, classification_report
 from scipy.sparse import hstack, csr_matrix
 
+from utils.config import (
+    SATISFIED_MIN_STARS,
+    NEGATIVE_MAX_STARS,
+    NEUTRAL_STARS,
+    RANDOM_STATE,
+    TEST_SIZE,
+    TFIDF_MAX_FEATURES,
+    TFIDF_NGRAM_RANGE,
+    LR_MAX_ITER,
+    N_ESTIMATORS,
+    GB_MAX_DEPTH,
+)
+
 nltk.download("vader_lexicon", quiet=True)
 
 EXTRA_FEATURES = ["vader_compound", "word_count", "exclamation_count"]
@@ -51,19 +64,19 @@ def main():
 
     # ── Binary Classification: Satisfied vs At-Risk ──────────────────────
     df["risk_class"] = df["total_score"].apply(
-        lambda x: "Satisfied (4-5 Stars)" if x >= 4 else "At-Risk (1-3 Stars)"
+        lambda x: "Satisfied (4-5 Stars)" if x >= SATISFIED_MIN_STARS else "At-Risk (1-3 Stars)"
     )
 
     X_train_b, X_test_b, y_train_b, y_test_b = train_test_split(
         df[["review_text"] + EXTRA_FEATURES],
         df["risk_class"],
-        test_size=0.2,
-        random_state=42,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE,
         stratify=df["risk_class"],
     )
 
     tfidf_b = TfidfVectorizer(
-        max_features=5000, ngram_range=(1, 2), stop_words="english",
+        max_features=TFIDF_MAX_FEATURES, ngram_range=TFIDF_NGRAM_RANGE, stop_words="english",
         token_pattern=TOKEN_PATTERN,
     )
     X_train_hyb = build_hybrid_features(
@@ -75,13 +88,13 @@ def main():
 
     binary_models = {
         "Logistic Regression": LogisticRegression(
-            max_iter=2000, random_state=42, class_weight="balanced"
+            max_iter=LR_MAX_ITER, random_state=RANDOM_STATE, class_weight="balanced"
         ),
         "Random Forest": RandomForestClassifier(
-            n_estimators=200, random_state=42, class_weight="balanced", n_jobs=-1
+            n_estimators=N_ESTIMATORS, random_state=RANDOM_STATE, class_weight="balanced", n_jobs=-1
         ),
         "Gradient Boosting": GradientBoostingClassifier(
-            n_estimators=200, random_state=42, max_depth=5
+            n_estimators=N_ESTIMATORS, random_state=RANDOM_STATE, max_depth=GB_MAX_DEPTH
         ),
     }
 
@@ -95,9 +108,9 @@ def main():
 
     # ── Three-Class Classification ───────────────────────────────────────
     def rating_bucket(score):
-        if score <= 2:
+        if score <= NEGATIVE_MAX_STARS:
             return "Negative (1-2 Stars)"
-        elif score == 3:
+        elif score == NEUTRAL_STARS:
             return "Neutral (3 Stars)"
         else:
             return "Positive (4-5 Stars)"
@@ -107,13 +120,13 @@ def main():
     X_train_3, X_test_3, y_train_3, y_test_3 = train_test_split(
         df[["review_text"] + EXTRA_FEATURES],
         df["rating_class"],
-        test_size=0.2,
-        random_state=42,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE,
         stratify=df["rating_class"],
     )
 
     tfidf_3 = TfidfVectorizer(
-        max_features=5000, ngram_range=(1, 2), stop_words="english",
+        max_features=TFIDF_MAX_FEATURES, ngram_range=TFIDF_NGRAM_RANGE, stop_words="english",
         token_pattern=TOKEN_PATTERN,
     )
     X_train_3h = build_hybrid_features(
@@ -125,13 +138,13 @@ def main():
 
     three_models = {
         "Logistic Regression": LogisticRegression(
-            max_iter=2000, random_state=42, class_weight="balanced"
+            max_iter=LR_MAX_ITER, random_state=RANDOM_STATE, class_weight="balanced"
         ),
         "Random Forest": RandomForestClassifier(
-            n_estimators=200, random_state=42, class_weight="balanced", n_jobs=-1
+            n_estimators=N_ESTIMATORS, random_state=RANDOM_STATE, class_weight="balanced", n_jobs=-1
         ),
         "Gradient Boosting": GradientBoostingClassifier(
-            n_estimators=200, random_state=42, max_depth=5
+            n_estimators=N_ESTIMATORS, random_state=RANDOM_STATE, max_depth=GB_MAX_DEPTH
         ),
     }
 

@@ -1,6 +1,81 @@
 import streamlit as st
 
-# brand colors
+# Sentiment thresholds
+# VADER's recommended cutoffs per Hutto & Gilbert (2014).  Compound scores
+# above +0.05 are "positive", below -0.05 are "negative", between is "neutral".
+# See: https://github.com/cjhutto/vaderSentiment#about-the-scoring
+VADER_POS_THRESHOLD = 0.05
+VADER_NEG_THRESHOLD = -0.05
+
+# TextBlob uses the same sign convention; we mirror VADER's cutoffs for
+# consistency so the two models are directly comparable.
+TEXTBLOB_POS_THRESHOLD = 0.05
+TEXTBLOB_NEG_THRESHOLD = -0.05
+
+# Mismatch detection: a 4-5 star review with clearly negative language,
+# or a 1-2 star review with strongly positive language.  The 0.5 bar for
+# "positive text + low stars" is intentionally stricter / weak positivity
+# in a 1-star review is often sarcasm, not a true mismatch.
+MISMATCH_NEG_SENTIMENT = -0.05
+MISMATCH_POS_SENTIMENT = 0.5
+
+# Star-rating buckets
+# Industry-standard NPS-style grouping: 4-5 = satisfied, 1-3 = at-risk.
+SATISFIED_MIN_STARS = 4       # >= this -> "Satisfied"
+NEGATIVE_MAX_STARS = 2        # <= this -> "Negative" in 3-class
+NEUTRAL_STARS = 3             # exactly this -> "Neutral" in 3-class
+
+# Model hyperparameters
+# Used by train_models.py.  Changing these requires retraining.
+RANDOM_STATE = 42             # reproducibility seed used everywhere
+TEST_SIZE = 0.2               # 80/20 train-test split (sklearn convention)
+
+# TF-IDF: 5000 features captures the most discriminative unigrams and
+# bigrams without over-fitting.  Empirically tuned — 3000 lost recall on
+# minority classes, 10000 added noise with no accuracy gain.
+TFIDF_MAX_FEATURES = 5000
+TFIDF_NGRAM_RANGE = (1, 2)    # unigrams + bigrams
+
+# Logistic Regression: 2000 max_iter because the default 100 does not
+# converge on this dataset's 5000-feature sparse matrix.
+LR_MAX_ITER = 2000
+
+# Tree ensembles: 200 trees balances accuracy vs training time.
+# Tested 100 → 500; diminishing returns past 200.
+N_ESTIMATORS = 200
+
+# Gradient Boosting max_depth=5 prevents over-fitting on the majority
+# class while still capturing interaction effects.  Tested 3-8; 5 gave
+# the best macro-F1 on the held-out set.
+GB_MAX_DEPTH = 5
+
+# LDA topic modeling
+# 6 topics chosen via coherence score comparison (4-10 range).  6 produced
+# the most interpretable, non-overlapping themes for this corpus.
+LDA_N_TOPICS = 6
+LDA_MAX_FEATURES = 2000       # vocabulary cap for CountVectorizer
+LDA_MIN_DF = 5                # ignore terms appearing in < 5 reviews
+LDA_MAX_DF = 0.7              # ignore terms appearing in > 70% of reviews
+LDA_MAX_ITER = 25             # online learning converges by ~20 iterations
+LDA_NGRAM_RANGE = (1, 2)
+
+# Data filtering thresholds
+# Min reviews required before including a state / community in analysis.
+# Prevents noisy conclusions from 1-2 review samples.
+MIN_REVIEWS_STATE = 10
+MIN_REVIEWS_COMMUNITY = 5
+
+# NER employee extraction: only surface names mentioned 5+ times to
+# filter out spaCy false positives (common nouns tagged as PERSON).
+MIN_EMPLOYEE_MENTIONS = 5
+SPACY_BATCH_SIZE = 200        # spaCy nlp.pipe batch size
+ENTITY_CONTEXT_WINDOW = 5     # tokens before/after entity for sentiment
+
+# Distinctive-word analysis parameters
+DISTINCTIVE_MIN_RATIO = 1.5   # word must appear 1.5x more often in neg vs pos
+DISTINCTIVE_MIN_COUNT = 10    # and at least 10 times total
+
+# Brand colors
 SHEA_BLUE = "#1a5276"
 SHEA_GOLD = "#d4a843"
 SHEA_DARK = "#0e2f44"

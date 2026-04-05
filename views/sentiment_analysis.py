@@ -4,7 +4,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from utils.config import SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW
+from utils.config import (
+    SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW,
+    SATISFIED_MIN_STARS, NEGATIVE_MAX_STARS, MIN_REVIEWS_STATE,
+    VADER_NEG_THRESHOLD, MISMATCH_NEG_SENTIMENT, MISMATCH_POS_SENTIMENT,
+)
 from utils.components import section_header, explain, commentary, clean_fig, nav_buttons
 from utils.data import get_stop_words, compute_ngrams, get_neg_distinctive
 
@@ -51,7 +55,7 @@ def render(df, fdf, page):
     section_header("3.3 Sentiment by State")
     explain("This chart compares customer sentiment across states using the VADER sentiment score. Each bar represents the average sentiment of review text within a state. Higher scores indicate that customers in that market tend to describe their experience using more positive language.")
     ss = fdf.groupby("state").agg(avg_v=("vader_compound","mean"),avg_s=("total_score","mean"),cnt=("total_score","count")).reset_index()
-    ss = ss[ss["cnt"]>=10].sort_values("avg_v"); ss["color"]=ss["avg_v"].apply(lambda v: POS_GREEN if v>=0.5 else (NEU_YELLOW if v>=0.3 else NEG_RED))
+    ss = ss[ss["cnt"]>=MIN_REVIEWS_STATE].sort_values("avg_v"); ss["color"]=ss["avg_v"].apply(lambda v: POS_GREEN if v>=0.5 else (NEU_YELLOW if v>=0.3 else NEG_RED))
     fig = go.Figure(go.Bar(y=ss["state"],x=ss["avg_v"],orientation="h",marker_color=ss["color"],text=[f"{v:.3f} (avg {s:.1f}, n={c})" for v,s,c in zip(ss["avg_v"],ss["avg_s"],ss["cnt"])],textposition="outside"))
     fig.update_xaxes(range=[0,ss["avg_v"].max()+0.25]); fig.update_layout(title="Sentiment by State"); clean_fig(fig,max(380,len(ss)*50)); st.plotly_chart(fig, use_container_width=True)
     commentary("Most states show consistently positive sentiment, with scores clustering between 0.45 and 0.55. Colorado and Texas rank among the highest, showing positive review language in those markets. <br> <br> North Carolina and Idaho appear lower in comparison, suggesting that customer experiences in those markets may warrant closer examination. California and Arizona, the two markets with the largest number of reviews, remain positive, showing stable customer sentiment in Shea Homes' largest operating regions.")
@@ -60,7 +64,7 @@ def render(df, fdf, page):
     section_header("3.4 Negative vs Positive Word Frequency")
     explain("This analysis examines the most frequently used words in positive and negative reviews. The charts compare language used in 1–2 star reviews with language used in 4–5 star reviews. By analyzing which terms appear most often in each group, we can identify the themes that customers associate with positive experiences and the issues that appear most often in negative feedback.")
     sw = get_stop_words(); sw_list = list(sw)
-    neg_t = fdf[fdf["total_score"]<=2]["review_text"]; pos_t = fdf[fdf["total_score"]>=4]["review_text"]
+    neg_t = fdf[fdf["total_score"]<=NEGATIVE_MAX_STARS]["review_text"]; pos_t = fdf[fdf["total_score"]>=SATISFIED_MIN_STARS]["review_text"]
     if len(neg_t)>5 and len(pos_t)>5:
         col1,col2 = st.columns(2)
         for col, texts, label, color in [(col1,neg_t,f"Negative (1-2 star, n={len(neg_t)})",NEG_RED),(col2,pos_t,f"Positive (4-5 star, n={len(pos_t)})",POS_GREEN)]:
@@ -94,7 +98,7 @@ def render(df, fdf, page):
     # 3.6 score vs. sentiment mismatch
     section_header("3.6 Score vs. Sentiment Mismatch")
     explain("This section identifies reviews where the star rating and the language of the review do not align. In most cases, higher star ratings are associated with positive wording, while lower ratings contain more negative language. When these signals disagree, it can show more complexity in the customer experience that star ratings alone may not capture. <br> <br> One important category is high-star reviews with negative sentiment in the text. These reviews often show that a customer was generally satisfied but still experienced specific problems worth noting. Identifying these cases helps surface issues that may otherwise be overlooked when focusing only on low star ratings.")
-    high_neg = fdf[(fdf["total_score"]>=4)&(fdf["vader_compound"]<-0.05)]; low_pos = fdf[(fdf["total_score"]<=2)&(fdf["vader_compound"]>0.5)]
+    high_neg = fdf[(fdf["total_score"]>=SATISFIED_MIN_STARS)&(fdf["vader_compound"]<MISMATCH_NEG_SENTIMENT)]; low_pos = fdf[(fdf["total_score"]<=NEGATIVE_MAX_STARS)&(fdf["vader_compound"]>MISMATCH_POS_SENTIMENT)]
     c1,c2,c3 = st.columns(3); c1.metric("Total Mismatches",f"{fdf['mismatch'].sum()} ({fdf['mismatch'].mean():.1%})"); c2.metric("High Stars + Neg Text",f"{len(high_neg)}"); c3.metric("Low Stars + Pos Text",f"{len(low_pos)}")
     if len(high_neg)>0:
         st.markdown("**Hidden Complaints (samples):**")

@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from utils.config import SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW, BUILDER_COLORS
+from utils.config import SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW, BUILDER_COLORS, SATISFIED_MIN_STARS
 from utils.components import section_header, explain, commentary, finding, clean_fig, nav_buttons
 from utils.data import load_all_builders
 
@@ -136,7 +136,7 @@ def render(df, fdf, page):
 
     # at risk review rate
     section_header("At-Risk Reviews", "Percentage of reviews rated 1–3 stars (at-risk) by builder")
-    risk = all_df.groupby("builder").apply(lambda g: (g["total_score"] <= 3).mean() * 100).reset_index(name="at_risk_pct")
+    risk = all_df.groupby("builder").apply(lambda g: (g["total_score"] < SATISFIED_MIN_STARS).mean() * 100).reset_index(name="at_risk_pct")
     risk = risk.sort_values("at_risk_pct", ascending=True)
     fig = px.bar(risk, x="at_risk_pct", y="builder", orientation="h",
                  color="builder", color_discrete_map=BUILDER_COLORS,

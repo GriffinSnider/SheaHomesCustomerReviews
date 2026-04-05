@@ -5,7 +5,7 @@ import re
 import plotly.express as px
 import plotly.graph_objects as go
 
-from utils.config import SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW
+from utils.config import SHEA_BLUE, SHEA_GOLD, POS_GREEN, NEG_RED, NEU_YELLOW, NEGATIVE_MAX_STARS, MIN_EMPLOYEE_MENTIONS
 from utils.components import section_header, explain, commentary, finding, clean_fig, nav_buttons
 from utils.data import compute_topics, compute_aspects, compute_employees, get_stop_words, compute_ngrams
 
@@ -58,7 +58,7 @@ def render(df, fdf, page):
         fig = go.Figure(go.Bar(y=ep.index,x=ep["avg_sentiment"],orientation="h",marker_color=[POS_GREEN if v>=0.3 else (NEU_YELLOW if v>=0 else NEG_RED) for v in ep["avg_sentiment"]],text=[f"{s:+.2f} ({m:.0f} mentions)" for s,m in zip(ep["avg_sentiment"],ep["mentions"])],textposition="outside"))
         fig.update_xaxes(range=[0, max(ep["avg_sentiment"]) * 1.14]); fig.add_vline(x=0,line_color="black",line_width=1); fig.update_layout(title="Employee Sentiment (5+ mentions)"); clean_fig(fig,max(600,len(ep)*32)); st.plotly_chart(fig, use_container_width=True)
         d=emp.head(25).copy(); d["avg_sentiment"]=d["avg_sentiment"].map("{:+.3f}".format); d["avg_stars"]=d["avg_stars"].map("{:.1f}".format); d.columns=["Mentions","Avg Sentiment","Avg Stars","Primary Location"]
-        st.dataframe(d, use_container_width=True); st.caption("Note: Heuristic name extraction. May include false positives. 5+ mention threshold reduces noise.")
+        st.dataframe(d, use_container_width=True); st.caption(f"Note: Heuristic name extraction. May include false positives. {MIN_EMPLOYEE_MENTIONS}+ mention threshold reduces noise.")
     if not emp.empty:
         _top3_emp = emp.head(3)
         _emp_mentions = [f"{name} in {row['top_location']}" for name, row in _top3_emp.iterrows()]
@@ -70,7 +70,7 @@ def render(df, fdf, page):
     # 4.4 common phrases (n-grams)
     section_header("4.4 Common Phrases (N-grams)", "Two and three word phrases in negative vs positive reviews")
     explain("Earlier analysis looked at individual words, but meaning often comes from combinations of words. For example, the phrase 'not responsive' carries the opposite meaning of the single word 'responsive,' even though the word itself is positive. <br> <br> This section analyzes common two-word and three-word phrases that appear frequently in positive and negative reviews. Looking at phrases instead of individual words provides a clearer picture of what customers are actually describing in their experiences.")
-    sw_list = list(get_stop_words()); neg_t = fdf[fdf["total_score"]<=2]["review_text"]; pos_t = fdf[fdf["total_score"]==5]["review_text"]
+    sw_list = list(get_stop_words()); neg_t = fdf[fdf["total_score"]<=NEGATIVE_MAX_STARS]["review_text"]; pos_t = fdf[fdf["total_score"]==5]["review_text"]
     if len(neg_t)>=5 and len(pos_t)>=5:
         col1,col2 = st.columns(2)
         for col,texts,label,color in [(col1,neg_t,"Negative (1-2 star)",NEG_RED),(col2,pos_t,"Positive (5 star)",POS_GREEN)]:

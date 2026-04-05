@@ -7,7 +7,30 @@ import joblib
 from collections import Counter
 from scipy.sparse import hstack, csr_matrix
 
-from utils.config import BUILDER_DISPLAY_NAMES
+from utils.config import (
+    BUILDER_DISPLAY_NAMES,
+    VADER_POS_THRESHOLD,
+    VADER_NEG_THRESHOLD,
+    TEXTBLOB_POS_THRESHOLD,
+    TEXTBLOB_NEG_THRESHOLD,
+    MISMATCH_NEG_SENTIMENT,
+    MISMATCH_POS_SENTIMENT,
+    SATISFIED_MIN_STARS,
+    NEGATIVE_MAX_STARS,
+    NEUTRAL_STARS,
+    RANDOM_STATE,
+    LDA_N_TOPICS,
+    LDA_MAX_FEATURES,
+    LDA_MIN_DF,
+    LDA_MAX_DF,
+    LDA_MAX_ITER,
+    LDA_NGRAM_RANGE,
+    MIN_EMPLOYEE_MENTIONS,
+    SPACY_BATCH_SIZE,
+    ENTITY_CONTEXT_WINDOW,
+    DISTINCTIVE_MIN_RATIO,
+    DISTINCTIVE_MIN_COUNT,
+)
 
 
 def _get_sia():
@@ -31,10 +54,10 @@ def _add_base_columns(df, sia):
     df["vader_neg"] = scores.apply(lambda x: x["neg"])
     df["vader_neu"] = scores.apply(lambda x: x["neu"])
     df["vader_label"] = df["vader_compound"].apply(
-        lambda x: "Positive" if x >= 0.05 else ("Negative" if x <= -0.05 else "Neutral")
+        lambda x: "Positive" if x >= VADER_POS_THRESHOLD else ("Negative" if x <= VADER_NEG_THRESHOLD else "Neutral")
     )
     df["risk_class"] = df["total_score"].apply(
-        lambda x: "Satisfied (4-5)" if x >= 4 else "At-Risk (1-3)"
+        lambda x: "Satisfied (4-5)" if x >= SATISFIED_MIN_STARS else "At-Risk (1-3)"
     )
     return df
 
@@ -52,12 +75,12 @@ def load_and_process(path):
     df["textblob_polarity"] = df["review_text"].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
     df["textblob_subjectivity"] = df["review_text"].apply(lambda x: TextBlob(str(x)).sentiment.subjectivity)
     df["textblob_label"] = df["textblob_polarity"].apply(
-        lambda x: "Positive" if x > 0.05 else ("Negative" if x < -0.05 else "Neutral")
+        lambda x: "Positive" if x > TEXTBLOB_POS_THRESHOLD else ("Negative" if x < TEXTBLOB_NEG_THRESHOLD else "Neutral")
     )
     df["exclamation_count"] = df["review_text"].apply(lambda x: str(x).count("!"))
     df["mismatch"] = (
-        ((df["total_score"] >= 4) & (df["vader_compound"] < -0.05))
-        | ((df["total_score"] <= 2) & (df["vader_compound"] > 0.5))
+        ((df["total_score"] >= SATISFIED_MIN_STARS) & (df["vader_compound"] < MISMATCH_NEG_SENTIMENT))
+        | ((df["total_score"] <= NEGATIVE_MAX_STARS) & (df["vader_compound"] > MISMATCH_POS_SENTIMENT))
     )
     return df
 
@@ -92,10 +115,10 @@ def compute_model_results(df, _model_mtime=None):
         return hstack([text_feat, csr_matrix(X_extras.values)])
 
     df = df.copy()
-    df["risk_class"] = df["total_score"].apply(lambda x: "Satisfied (4-5 Stars)" if x >= 4 else "At-Risk (1-3 Stars)")
+    df["risk_class"] = df["total_score"].apply(lambda x: "Satisfied (4-5 Stars)" if x >= SATISFIED_MIN_STARS else "At-Risk (1-3 Stars)")
     def rating_bucket(s):
-        if s <= 2: return "Negative (1-2 Stars)"
-        elif s == 3: return "Neutral (3 Stars)"
+        if s <= NEGATIVE_MAX_STARS: return "Negative (1-2 Stars)"
+        elif s == NEUTRAL_STARS: return "Neutral (3 Stars)"
         else: return "Positive (4-5 Stars)"
     df["rating_class"] = df["total_score"].apply(rating_bucket)
 
@@ -213,7 +236,7 @@ def predict_review(text, models):
 
     return {
         "vader_compound": compound,
-        "vader_label": "Positive" if compound >= 0.05 else ("Negative" if compound <= -0.05 else "Neutral"),
+        "vader_label": "Positive" if compound >= VADER_POS_THRESHOLD else ("Negative" if compound <= VADER_NEG_THRESHOLD else "Neutral"),
         "binary_label": binary_label,
         "binary_proba": dict(zip(binary_classes, binary_proba)),
         "three_label": three_label,
@@ -231,12 +254,12 @@ def get_stop_words():
 
 
 @st.cache_data
-def compute_topics(texts, n_topics=6):
+def compute_topics(texts, n_topics=LDA_N_TOPICS):
     from sklearn.feature_extraction.text import CountVectorizer; from sklearn.decomposition import LatentDirichletAllocation
     sw = get_stop_words()
-    vec = CountVectorizer(max_features=2000, stop_words=list(sw), min_df=5, max_df=0.7, ngram_range=(1,2), token_pattern=r"(?u)\b\w[\w']+\b")
+    vec = CountVectorizer(max_features=LDA_MAX_FEATURES, stop_words=list(sw), min_df=LDA_MIN_DF, max_df=LDA_MAX_DF, ngram_range=LDA_NGRAM_RANGE, token_pattern=r"(?u)\b\w[\w']+\b")
     dtm = vec.fit_transform(texts.astype(str)); fnames = vec.get_feature_names_out()
-    lda = LatentDirichletAllocation(n_components=n_topics, random_state=42, max_iter=25, learning_method="online"); lda.fit(dtm)
+    lda = LatentDirichletAllocation(n_components=n_topics, random_state=RANDOM_STATE, max_iter=LDA_MAX_ITER, learning_method="online"); lda.fit(dtm)
     tkws = [[fnames[i] for i in t.argsort()[-10:][::-1]] for t in lda.components_]
     hints = {"sales":"Sales Experience","warranty":"Warranty & Post-Purchase","quality":"Construction Quality","community":"Community & Lifestyle","process":"Buying Process","team":"Team & Communication","design":"Design & Features","price":"Value & Pricing","construction":"Construction Quality","move":"Move-In Experience","closing":"Closing Process","issues":"Issues & Problems","response":"Responsiveness"}
     tnames = {}
@@ -258,7 +281,7 @@ def compute_aspects(texts):
         for text in texts:
             tl = str(text).lower(); matched = [s.strip() for s in re.split(r"[.!?]+", tl) if any(k in s for k in kws)]
             if matched: n += 1; sents.append(sia.polarity_scores(". ".join(matched))["compound"])
-        results[asp] = {"mentions":n, "pct":n/len(texts) if len(texts) else 0, "avg_sentiment":np.mean(sents) if sents else 0, "pct_negative":np.mean([s<-0.05 for s in sents]) if sents else 0}
+        results[asp] = {"mentions":n, "pct":n/len(texts) if len(texts) else 0, "avg_sentiment":np.mean(sents) if sents else 0, "pct_negative":np.mean([s < VADER_NEG_THRESHOLD for s in sents]) if sents else 0}
     return results
 
 
@@ -275,7 +298,7 @@ def compute_employees(texts, scores, locations, states):
     nlp = _load_spacy()
     NOT_PERSON = {"Shea", "Sheas", "Trilogy", "Covid", "Encanterra", "HOA", "Shae"}
     recs = []
-    for doc, sc, loc, st_ in zip(nlp.pipe([str(t) for t in texts], batch_size=200), scores, locations, states):
+    for doc, sc, loc, st_ in zip(nlp.pipe([str(t) for t in texts], batch_size=SPACY_BATCH_SIZE), scores, locations, states):
         for ent in doc.ents:
             if ent.label_ != "PERSON":
                 continue
@@ -285,8 +308,8 @@ def compute_employees(texts, scores, locations, states):
                 continue
             if len(first) < 3 or not first[0].isupper():
                 continue
-            start = max(0, ent.start - 5)
-            end = min(len(doc), ent.end + 5)
+            start = max(0, ent.start - ENTITY_CONTEXT_WINDOW)
+            end = min(len(doc), ent.end + ENTITY_CONTEXT_WINDOW)
             ctx = doc[start:end].text
             recs.append({"name": first, "sentiment": sia.polarity_scores(ctx)["compound"],
                          "total_score": sc, "location": loc, "state": st_})
@@ -299,7 +322,7 @@ def compute_employees(texts, scores, locations, states):
         avg_stars=("total_score", "mean"),
         top_location=("location", lambda x: x.mode().iloc[0] if len(x) > 0 else "Unknown"),
     ).sort_values("mentions", ascending=False)
-    return s[s["mentions"] >= 5]
+    return s[s["mentions"] >= MIN_EMPLOYEE_MENTIONS]
 
 
 @st.cache_data
@@ -322,5 +345,5 @@ def get_neg_distinctive(neg_texts, pos_texts, sw_list):
     result = []
     for word, rate in sorted(neg_rate.items(), key=lambda x: -x[1]):
         pr = pos_rate.get(word, 0.001); ratio = rate / pr
-        if ratio > 1.5 and neg_w[word] >= 10: result.append((word, neg_w[word], ratio))
+        if ratio > DISTINCTIVE_MIN_RATIO and neg_w[word] >= DISTINCTIVE_MIN_COUNT: result.append((word, neg_w[word], ratio))
     return sorted(result, key=lambda x: -x[2])[:20]
