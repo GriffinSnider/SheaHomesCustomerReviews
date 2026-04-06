@@ -62,6 +62,7 @@ with st.sidebar:
     if selected_analysis and selected_analysis != page:
         st.session_state.page = selected_analysis
         st.session_state.scroll_top = True
+        st.session_state.pop("nav_tools", None)
         st.rerun()
 
     # tools navigation
@@ -75,6 +76,7 @@ with st.sidebar:
     if selected_tool and selected_tool != page:
         st.session_state.page = selected_tool
         st.session_state.scroll_top = True
+        st.session_state.pop("nav_analysis", None)
         st.rerun()
 
     page = st.session_state.page
