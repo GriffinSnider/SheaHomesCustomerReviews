@@ -1,6 +1,6 @@
 # Shea Homes Customer Review Analysis
 
-**NLP and Machine Learning Applied to 49,000+ Homebuyer Reviews**
+**NLP and Machine Learning Applied to 49,000+ Homebuyer Reviews Across Four Builders**
 
 [**Live Streamlit App**](https://sheahomesreviews.streamlit.app/)
 
@@ -10,7 +10,7 @@
 
 NewHomeSource.com is one of the largest online marketplaces for newly built homes in the United States. Prospective buyers use it to browse floor plans, compare communities, and read verified reviews from actual homebuyers after closing. For a production homebuilder like Shea Homes, these reviews feed directly into purchase behavior: a buyer evaluating two builders in the same market will often let this feedback serve as a tiebreaker.
 
-This project applies NLP and machine learning to 49,000+ customer reviews across four major production homebuilders (Shea Homes, KB Home, Lennar, and Pulte Homes) spanning September 2020 through April 2026. Shea Homes is the primary subject of a deep-dive analysis, with the three competitors providing market context through a side-by-side comparison. The goal is to turn unstructured review text into concrete findings about customer satisfaction, recurring themes, and what predicts a negative rating before it shows up in aggregate scores.
+This project applies NLP and machine learning to 49,000+ customer reviews across four major production homebuilders — Shea Homes (~2,000 reviews), KB Home (~11,000), Lennar (~20,000), and Pulte Homes (~15,000) — spanning September 2020 through April 2026. Shea Homes is the primary subject of a deep-dive analysis, with the three competitors providing market context through a side-by-side comparison. The goal is to turn unstructured review text into concrete findings about customer satisfaction, recurring themes, and what predicts a negative rating before it shows up in aggregate scores.
 
 ## Analysis Pipeline
 
@@ -33,7 +33,7 @@ The same NLP pipeline run on KB Home (~11K reviews), Lennar (~20K reviews), and 
 
 ## Key Findings
 
-- 49,000+ reviews analyzed across four major production homebuilders
+- 49,000+ reviews analyzed across four builders (~2,000 Shea Homes, ~11,000 KB Home, ~20,000 Lennar, ~15,000 Pulte Homes)
 - Average rating across all Shea Homes reviews: 4.21 / 5.0
 - Gradient Boosting classifier accuracy: 84.1%
 - Approximately 22% of reviews flagged as at-risk based on model predictions

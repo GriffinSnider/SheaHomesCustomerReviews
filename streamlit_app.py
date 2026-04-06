@@ -5,7 +5,7 @@ import warnings
 
 from streamlit_scroll_to_top import scroll_to_here
 
-from utils.config import APP_CSS, PAGES
+from utils.config import APP_CSS, PAGES, ANALYSIS_PAGES, TOOL_PAGES
 from utils.data import load_and_process
 
 from views import (
@@ -48,25 +48,41 @@ with st.sidebar:
     st.markdown("---")
 
     if "page" not in st.session_state:
-        st.session_state.page = PAGES[0]
+        st.session_state.page = ANALYSIS_PAGES[0]
 
-    selected_page = st.radio("Navigate", PAGES, index=PAGES.index(st.session_state.page))
+    page = st.session_state.page
 
-    if selected_page != st.session_state.page:
-        st.session_state.page = selected_page
+    # analysis navigation
+    st.markdown("#### Analysis")
+    analysis_idx = ANALYSIS_PAGES.index(page) if page in ANALYSIS_PAGES else None
+    selected_analysis = st.radio(
+        "Analysis", ANALYSIS_PAGES, index=analysis_idx,
+        label_visibility="collapsed", key="nav_analysis",
+    )
+    if selected_analysis and selected_analysis != page:
+        st.session_state.page = selected_analysis
+        st.session_state.scroll_top = True
+        st.rerun()
+
+    # tools navigation
+    st.markdown("<div></div>", unsafe_allow_html=True)
+    st.markdown("#### Tools")
+    tool_idx = TOOL_PAGES.index(page) if page in TOOL_PAGES else None
+    selected_tool = st.radio(
+        "Tools", TOOL_PAGES, index=tool_idx,
+        label_visibility="collapsed", key="nav_tools",
+    )
+    if selected_tool and selected_tool != page:
+        st.session_state.page = selected_tool
         st.session_state.scroll_top = True
         st.rerun()
 
     page = st.session_state.page
 
     st.markdown("---")
-    st.caption(f"**49,000+** total reviews")
-    latest_date = fdf["date"].max()
-    if pd.notna(latest_date):
-        st.caption(f"Latest review: **{latest_date.strftime('%b %d, %Y')}**")
+    st.caption(f"**{len(fdf):,}** Shea reviews &nbsp;|&nbsp; **49,000+** across all builders")
     csv_mod = pd.Timestamp(os.path.getmtime(DATA_PATH), unit="s")
     st.caption(f"Data refreshed: **{csv_mod.strftime('%b %d, %Y')}**")
-    st.markdown("---")
     st.caption("Built by **Griffin Snider**")
 
 if st.session_state.get("scroll_top", False):
@@ -75,7 +91,7 @@ if st.session_state.get("scroll_top", False):
 
 st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 
-# ── Page dispatch ─────────────────────────────────────────────────────
+# page dispatch
 PAGE_MODULES = {
     PAGES[0]: overview,
     PAGES[1]: summary_stats,
