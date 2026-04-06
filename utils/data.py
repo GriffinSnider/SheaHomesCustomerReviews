@@ -85,7 +85,7 @@ def load_and_process(path):
     return df
 
 
-@st.cache_data(show_spinner="Loading all builder reviews...")
+@st.cache_data(show_spinner="Loading all 49,000+ builder reviews...")
 def load_all_builders():
     import glob as _glob
     sia = _get_sia()
@@ -291,7 +291,7 @@ def _load_spacy():
     return spacy.load("en_core_web_sm", disable=["parser", "lemmatizer"])
 
 
-@st.cache_data(show_spinner="Extracting employee mentions...")
+@st.cache_data(show_spinner="Finding employee mentions...")
 def compute_employees(texts, scores, locations, states):
     import nltk; nltk.download("vader_lexicon", quiet=True)
     from nltk.sentiment.vader import SentimentIntensityAnalyzer; sia = SentimentIntensityAnalyzer()

@@ -9,14 +9,14 @@ from utils.data import load_all_builders
 
 
 def render(df, fdf, page):
-    st.title("Builder Comparison")
+    st.title("Part 6: Builder Comparison")
     explain("Side-by-side analysis of Shea Homes against three major competitors — KB Home, Lennar, and Pulte Homes — using the same NLP pipeline applied to each builder's customer reviews on NewHomeSource.com.")
 
     all_df = load_all_builders()
     builders = sorted(all_df["builder"].unique())
 
     # scorecard
-    section_header("Overall Ratings", "Average scores across all review dimensions")
+    section_header("Overall Ratings")
     cols = st.columns(len(builders))
     for i, b in enumerate(builders):
         bslice = all_df[all_df["builder"] == b]
@@ -25,7 +25,7 @@ def render(df, fdf, page):
             st.metric(b, f"{avg:.2f} / 5.0", f"{len(bslice):,} reviews")
 
     # star rating distribution
-    section_header("Star Rating Distribution", "How each builder's ratings are distributed across 1–5 stars")
+    section_header("Star Rating Distribution")
     dist = all_df.groupby(["builder", "total_score"]).size().reset_index(name="count")
     totals = all_df.groupby("builder").size().reset_index(name="total")
     dist = dist.merge(totals, on="builder")
@@ -37,7 +37,7 @@ def render(df, fdf, page):
     clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
 
     # sub score comparison
-    section_header("Rating Dimensions", "Average quality, trustworthiness, value, and responsiveness by builder")
+    section_header("Rating Dimensions")
     dims = ["quality", "trustworthiness", "value", "responsiveness"]
     dim_data = []
     for b in builders:
@@ -58,7 +58,7 @@ def render(df, fdf, page):
     commentary(" · ".join(commentary_lines))
 
     # sentiment comparison
-    section_header("Sentiment Analysis", "VADER compound sentiment comparison across builders")
+    section_header("Sentiment Analysis")
     sent_data = []
     for b in builders:
         bslice = all_df[all_df["builder"] == b]
@@ -93,7 +93,7 @@ def render(df, fdf, page):
     clean_fig(fig, 400); st.plotly_chart(fig, use_container_width=True)
 
     # review volume over time
-    section_header("Review Volume Over Time", "Quarterly review counts by builder")
+    section_header("Review Volume Over Time")
     all_df_t = all_df.dropna(subset=["date"]).copy()
     all_df_t["quarter"] = all_df_t["date"].dt.to_period("Q").astype(str)
     vol = all_df_t.groupby(["quarter", "builder"]).size().reset_index(name="count")
@@ -112,7 +112,7 @@ def render(df, fdf, page):
     clean_fig(fig, 400); st.plotly_chart(fig, use_container_width=True)
 
     # geographic footprint
-    section_header("Geographic Footprint", "States where each builder has reviews")
+    section_header("Geographic Footprint")
     geo = all_df.dropna(subset=["state"]).groupby(["state", "builder"]).agg(
         reviews=("total_score", "size"), avg_rating=("total_score", "mean")
     ).reset_index()
@@ -135,7 +135,7 @@ def render(df, fdf, page):
         clean_fig(fig, 420); st.plotly_chart(fig, use_container_width=True)
 
     # at risk review rate
-    section_header("At-Risk Reviews", "Percentage of reviews rated 1–3 stars (at-risk) by builder")
+    section_header("At-Risk Reviews")
     risk = all_df.groupby("builder").apply(lambda g: (g["total_score"] < SATISFIED_MIN_STARS).mean() * 100).reset_index(name="at_risk_pct")
     risk = risk.sort_values("at_risk_pct", ascending=True)
     fig = px.bar(risk, x="at_risk_pct", y="builder", orientation="h",

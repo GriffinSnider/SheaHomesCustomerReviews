@@ -92,7 +92,7 @@ def render(df, fdf, page):
     commentary("All categories are highly correlated, showing that customers who rate one dimension poorly tend to rate everything poorly. This suggests the overall experience is somewhat holistic: a bad construction experience drags down trust, value, and responsiveness perceptions too.")
 
     # 1.7 geographic deep dive
-    section_header("1.7 Geographic Deep Dive", "Choropleth map and per-dimension ratings by state")
+    section_header("1.7 Geographic Deep Dive")
     explain("The earlier geographic charts showed review volume and average overall ratings. This section maps satisfaction across the country and breaks scores down by rating dimension (Quality, Trustworthiness, Value, Responsiveness) to reveal which markets underperform on specific operational areas. States with fewer than 10 reviews are excluded.")
 
     geo = fdf.groupby("state").agg(
@@ -168,7 +168,7 @@ def render(df, fdf, page):
     commentary(f"The map and dimension breakdown reveal that satisfaction is not uniform across markets. Responsiveness varies the most between states: {_resp_best['state']} leads at {_resp_best['resp']:.2f} while {_resp_worst['state']} trails at {_resp_worst['resp']:.2f}, a gap of {_resp_best['resp'] - _resp_worst['resp']:.2f} points. {_weakest_dim_mode} is the weakest dimension in the majority of markets, suggesting it may be a company-wide opportunity rather than a regional issue. These patterns can help prioritize where operational improvements would have the most impact.")
 
     # 1.8 community leaderboard
-    section_header("1.8 Community Leaderboard", "Ranking Shea communities by satisfaction and at-risk rate")
+    section_header("1.8 Community Leaderboard")
     explain("This leaderboard ranks every Shea Homes community (city) by average rating and percentage of at-risk reviews (1–3 stars). Communities with fewer than 5 reviews are excluded to avoid small-sample noise. Use the toggles to sort by different metrics and surface geographic outliers.")
 
     MIN_REVIEWS_LB = MIN_REVIEWS_COMMUNITY
@@ -232,8 +232,8 @@ def render(df, fdf, page):
     _risk_note = f" {len(_high_risk)} communities have an at-risk rate above 30%." if len(_high_risk) > 0 else " No community has an at-risk rate above 30%."
     commentary(
         f"Among the {len(comm)} communities with {MIN_REVIEWS_LB}+ reviews, "
-        f"<b>{_lb_best['Community']}</b> leads with an avg rating of {float(_lb_best['Avg Rating']):.2f} "
-        f"({int(_lb_best['Reviews'])} reviews), while <b>{_lb_worst['Community']}</b> trails at "
+        f"{_lb_best['Community']} leads with an avg rating of {float(_lb_best['Avg Rating']):.2f} "
+        f"({int(_lb_best['Reviews'])} reviews), while {_lb_worst['Community']} trails at "
         f"{float(_lb_worst['Avg Rating']):.2f} ({int(_lb_worst['Reviews'])} reviews).{_risk_note} "
         f"Regional managers can use this ranking to identify which communities may need operational attention and which represent best-practice models."
     )

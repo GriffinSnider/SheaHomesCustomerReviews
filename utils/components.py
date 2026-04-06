@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1 as components
-from utils.config import SHEA_DARK, PAGES
+from utils.config import SHEA_DARK, ANALYSIS_PAGES
 
 
 def section_header(title, subtitle=""):
@@ -51,29 +51,32 @@ def scroll_to_top():
 
 
 def nav_buttons(page):
+    """Back/Next buttons for analysis pages only. Tool pages get no nav buttons."""
+    if page not in ANALYSIS_PAGES:
+        return
     st.markdown("---")
     col1, col2, col3 = st.columns([1, 6, 1])
     with col1:
-        if page != PAGES[0]:
+        if page != ANALYSIS_PAGES[0]:
             if st.button("⇽ Back"):
                 _previous_page()
     with col3:
-        if page != PAGES[-1]:
+        if page != ANALYSIS_PAGES[-1]:
             if st.button("Next ⇾"):
                 _next_page()
 
 
 def _next_page():
-    current_index = PAGES.index(st.session_state.page)
-    if current_index < len(PAGES) - 1:
-        st.session_state.page = PAGES[current_index + 1]
+    current_index = ANALYSIS_PAGES.index(st.session_state.page)
+    if current_index < len(ANALYSIS_PAGES) - 1:
+        st.session_state.page = ANALYSIS_PAGES[current_index + 1]
         st.session_state.scroll_top = True
         st.rerun()
 
 
 def _previous_page():
-    current_index = PAGES.index(st.session_state.page)
+    current_index = ANALYSIS_PAGES.index(st.session_state.page)
     if current_index > 0:
-        st.session_state.page = PAGES[current_index - 1]
+        st.session_state.page = ANALYSIS_PAGES[current_index - 1]
         st.session_state.scroll_top = True
         st.rerun()

@@ -100,18 +100,23 @@ BUILDER_COLORS = {
 }
 
 # pages
-PAGES = [
+ANALYSIS_PAGES = [
     "Overview",
     "Part 1: Summary Statistics",
     "Part 2: Data Evaluation",
     "Part 3: Sentiment Analysis",
     "Part 4: Advanced NLP",
     "Part 5: Predictive Models",
-    "Builder Comparison",
+    "Part 6: Builder Comparison",
     "Conclusion",
+]
+
+TOOL_PAGES = [
     "Live Prediction Tool",
     "Review Explorer",
 ]
+
+PAGES = ANALYSIS_PAGES + TOOL_PAGES
 
 # global CSS
 APP_CSS = """
