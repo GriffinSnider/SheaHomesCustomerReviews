@@ -7,7 +7,7 @@ import pytest
 from utils.data import compute_ngrams, get_neg_distinctive, get_stop_words
 
 
-# ── compute_ngrams ────────────────────────────────────────────────────
+# compute_ngrams
 class TestComputeNgrams:
     def test_basic_bigrams(self):
         texts = pd.Series(["great home experience", "great home quality"])
@@ -62,7 +62,7 @@ class TestComputeNgrams:
         assert result == []
 
 
-# ── get_neg_distinctive ───────────────────────────────────────────────
+# get_neg_distinctive
 class TestGetNegDistinctive:
     def test_finds_overrepresented_word(self):
         # "warranty" appears heavily in negative, rarely in positive
@@ -115,7 +115,7 @@ class TestGetNegDistinctive:
         assert "the" not in words
 
 
-# ── get_stop_words ────────────────────────────────────────────────────
+# get_stop_words
 class TestGetStopWords:
     def test_returns_set(self):
         sw = get_stop_words()

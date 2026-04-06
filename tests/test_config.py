@@ -33,7 +33,7 @@ from utils.config import (
 )
 
 
-# ── Sentiment thresholds ──────────────────────────────────────────────
+# sentiment thresholds
 class TestSentimentThresholds:
     def test_vader_positive_above_negative(self):
         assert VADER_POS_THRESHOLD > VADER_NEG_THRESHOLD
@@ -57,7 +57,7 @@ class TestSentimentThresholds:
         assert MISMATCH_POS_SENTIMENT > VADER_POS_THRESHOLD
 
 
-# ── Star-rating buckets ───────────────────────────────────────────────
+# star rating buckets
 class TestRatingBuckets:
     def test_bucket_ordering(self):
         assert NEGATIVE_MAX_STARS < NEUTRAL_STARS < SATISFIED_MIN_STARS
@@ -70,7 +70,7 @@ class TestRatingBuckets:
             assert star >= SATISFIED_MIN_STARS
 
 
-# ── Model hyperparameters ─────────────────────────────────────────────
+# model hyperparameters
 class TestModelHyperparams:
     def test_test_size_between_0_and_1(self):
         assert 0 < TEST_SIZE < 1
@@ -92,7 +92,7 @@ class TestModelHyperparams:
         assert TFIDF_NGRAM_RANGE[0] <= TFIDF_NGRAM_RANGE[1]
 
 
-# ── LDA parameters ───────────────────────────────────────────────────
+# LDA parameters
 class TestLDAParams:
     def test_topics_positive(self):
         assert LDA_N_TOPICS > 0
@@ -105,7 +105,7 @@ class TestLDAParams:
         assert LDA_MIN_DF >= 1
 
 
-# ── Filtering thresholds ──────────────────────────────────────────────
+# Filtering thresholds
 class TestFilteringThresholds:
     def test_min_reviews_state_positive(self):
         assert MIN_REVIEWS_STATE > 0
@@ -123,7 +123,7 @@ class TestFilteringThresholds:
         assert DISTINCTIVE_MIN_COUNT > 0
 
 
-# ── App configuration ─────────────────────────────────────────────────
+# App configuration
 class TestAppConfig:
     def test_pages_not_empty(self):
         assert len(PAGES) > 0

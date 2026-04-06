@@ -28,7 +28,7 @@ from datetime import datetime
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 
-# ── Known builders (convenience shortcuts) ──────────────────────────────────
+# known builders
 BUILDERS = {
     "shea":   {"slug": "shea-homes",  "id": 612},
     "lennar": {"slug": "lennar",      "id": 644},
@@ -36,7 +36,7 @@ BUILDERS = {
     "kb":     {"slug": "kb-home",     "id": 5},
 }
 
-# ── Scraper settings ────────────────────────────────────────────────────────
+# scraper settings
 MIN_DELAY = 2
 MAX_DELAY = 5
 MAX_RETRIES = 3
@@ -76,7 +76,7 @@ def wait_for_human(page_handle, base_url, label="initial load"):
     return False
 
 
-# ── Page-count auto-detection ───────────────────────────────────────────────
+# page-count auto-detection
 
 def detect_total_pages(page_handle, base_url):
     """
@@ -114,7 +114,7 @@ def detect_total_pages(page_handle, base_url):
     return None
 
 
-# ── Review parsing (unchanged from shea_scraper.py) ────────────────────────
+# review parsing
 
 def extract_scores(h4, next_h4=None):
     """Walk forward from h4 through DOM, collect text, regex out scores."""
@@ -232,7 +232,7 @@ def parse_reviews(html):
     return reviews
 
 
-# ── Checkpoint system ───────────────────────────────────────────────────────
+# checkpoint system
 
 def save_checkpoint(reviews, last_page, path):
     with open(path, "w") as f:
@@ -287,13 +287,13 @@ def scrape(slug, builder_id, output_csv, checkpoint_file, pages_override=None):
         page.goto(base_url, wait_until="domcontentloaded", timeout=60000)
         page.wait_for_timeout(3000)
 
-        # ── Wait for bot-check / CAPTCHA if needed ─────────────────────
+        #wait for bot-check / CAPTCHA if needed
         if not wait_for_human(page, base_url, "page 1"):
             log("Could not get past bot-check. Exiting.")
             browser.close()
             return []
 
-        # ── Auto-detect total pages ─────────────────────────────────────
+        # auto detect total pages
         if pages_override:
             total_pages = pages_override
             log(f"Using manual page count: {total_pages}")
@@ -383,7 +383,7 @@ def scrape(slug, builder_id, output_csv, checkpoint_file, pages_override=None):
         save_checkpoint(all_reviews, total_pages, checkpoint_file)
         browser.close()
 
-    # ── Retry failed pages ──────────────────────────────────────────────
+    # retry failed pages
     if failed_pages:
         log(f"\nRetrying {len(failed_pages)} failed pages with fresh browser...\n")
         still_failed = []
@@ -433,7 +433,7 @@ def scrape(slug, builder_id, output_csv, checkpoint_file, pages_override=None):
 
         failed_pages = still_failed
 
-    # ── Deduplicate & save CSV ──────────────────────────────────────────
+    # deduplicate & save CSV
     log(f"\nTotal scraped: {len(all_reviews)} reviews")
     if failed_pages:
         log(f"Permanently failed pages: {failed_pages}")
@@ -472,7 +472,7 @@ def scrape(slug, builder_id, output_csv, checkpoint_file, pages_override=None):
     return unique
 
 
-# ── CLI ─────────────────────────────────────────────────────────────────────
+# CLI
 
 def main():
     parser = argparse.ArgumentParser(

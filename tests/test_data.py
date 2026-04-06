@@ -15,7 +15,7 @@ from utils.config import (
 )
 
 
-# ── _add_base_columns ────────────────────────────────────────────────
+#_add_base_columns
 class TestAddBaseColumns:
     def test_date_parsed(self, processed_reviews):
         assert pd.api.types.is_datetime64_any_dtype(processed_reviews["date"])
@@ -85,7 +85,7 @@ class TestAddBaseColumns:
         assert (threes["risk_class"] == "At-Risk (1-3)").all()
 
 
-# ── VADER label threshold edge cases ──────────────────────────────────
+# VADER label threshold edge cases
 class TestVaderLabelEdgeCases:
     """Verify the exact boundary behavior of the VADER label thresholds."""
 
@@ -112,7 +112,7 @@ class TestVaderLabelEdgeCases:
         assert self._label(0.0) == "Neutral"
 
 
-# ── Rating bucket (3-class) ──────────────────────────────────────────
+# Rating bucket (3-class)
 class TestRatingBucket:
     def _bucket(self, score):
         if score <= NEGATIVE_MAX_STARS:
@@ -132,7 +132,7 @@ class TestRatingBucket:
         assert self._bucket(score) == expected
 
 
-# ── Mismatch detection ────────────────────────────────────────────────
+# mismatch detection
 class TestMismatchDetection:
     """Verify the mismatch flag logic."""
 
@@ -167,7 +167,7 @@ class TestMismatchDetection:
         assert self._is_mismatch(1, 0.3) is False
 
 
-# ── load_and_process extras ───────────────────────────────────────────
+# load_and_process extras
 class TestLoadAndProcessExtras:
     """Test the Shea-only columns added by load_and_process (TextBlob, mismatch, etc.)."""
 
