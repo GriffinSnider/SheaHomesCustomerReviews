@@ -59,9 +59,12 @@ with st.sidebar:
     # Active = gold background, white text.  Inactive = dark, readable light text.
     st.markdown("""
     <style>
+    /* Sidebar width — slightly wider than default */
+    section[data-testid="stSidebar"] { min-width: 350px !important; width: 280px !important; }
+
     /* Collapse excess vertical space in sidebar */
     section[data-testid="stSidebar"] .block-container { padding-top: 1rem !important; }
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.15rem !important; }
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.20rem !important; }
 
     /* All sidebar buttons: dark background, readable light text, compact */
     section[data-testid="stSidebar"] button {
@@ -69,7 +72,7 @@ with st.sidebar:
         border: 1px solid rgba(214,234,248,0.1) !important;
         color: #d6eaf8 !important;
         text-align: left !important;
-        padding: 4px 10px !important;
+        padding: 6px 10px !important;
         font-size: 0.85rem !important;
         font-family: 'DM Sans', sans-serif !important;
         border-radius: 6px !important;
