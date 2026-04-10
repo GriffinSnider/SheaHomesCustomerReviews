@@ -16,16 +16,22 @@ from utils.data import load_all_builders
 def render(df, fdf, page):
     st.title("Part 6: Builder Comparison")
     explain(
-        "Side-by-side analysis of Shea Homes against three major production homebuilders "
-        "— KB Home, Lennar, and Pulte Homes — using the same NLP pipeline applied to each "
-        "builder's customer reviews on NewHomeSource.com."
+        "A competitive benchmarking comparing Shea Homes against KB Home, Lennar, and "
+        "Pulte using the same NLP pipeline applied to each builder's customer reviews on "
+        "NewHomeSource.com."
     )
 
     all_df = load_all_builders()
     builders_sorted = sorted(all_df["builder"].unique())
 
-    # 7.1 overall ratings
-    section_header("Overall Ratings")
+    # 6.1 overall ratings
+    section_header("6.1 Overall Ratings")
+    explain(
+        "This section compares two metrics for each builder: average star rating and the share of "
+        "reviews rated 1–3 stars (at-risk). Average rating shows where each builder stands overall; "
+        "the at-risk rate shows how many customers report a poor experience. "
+
+    )
 
     summary = all_df.groupby("builder").agg(
         reviews=("total_score", "size"),
@@ -64,8 +70,27 @@ def render(df, fdf, page):
         clean_fig(fig, 380)
         st.plotly_chart(fig, use_container_width=True)
 
-    #  7.2 star rating distribution
-    section_header("Star Rating Distribution")
+    best_builder_overall = summary.index[0]
+    best_avg_overall = summary.loc[best_builder_overall, "avg_rating"]
+    worst_builder_overall = summary.index[-1]
+    worst_risk = summary.loc[worst_builder_overall, "pct_at_risk"]
+    commentary(
+        f"{best_builder_overall} leads with an average rating of {best_avg_overall:.2f}, while "
+        f"{worst_builder_overall} has the highest at-risk rate at {worst_risk:.1f}%. The spread "
+        f"between the top and bottom builder is "
+        f"{summary['avg_rating'].max() - summary['avg_rating'].min():.2f} points. That gap is "
+        f"not extreme, suggesting all four builders deliver broadly comparable experiences with "
+        f"important differences at the margins."
+    )
+
+    # 6.2 star rating distribution
+    section_header("6.2 Star Rating Distribution")
+    explain(
+        "Average ratings can mask important differences in how reviews are distributed. A builder "
+        "with many 5-star and many 1-star reviews looks different from one with mostly 4-star reviews, "
+        "even if the averages are similar. This section shows the full distribution for each builder "
+        "side by side."
+    )
 
     fig = make_subplots(rows=1, cols=len(builders_sorted), shared_yaxes=True,
                         subplot_titles=builders_sorted)
@@ -84,8 +109,29 @@ def render(df, fdf, page):
     clean_fig(fig, 400)
     st.plotly_chart(fig, use_container_width=True)
 
-    # ── 7.3 Rating Dimensions ────────────────────────────────────────
-    section_header("Rating Dimensions")
+    # compute distribution commentary
+    dist_lines = []
+    for builder in builders_sorted:
+        bslice = all_df[all_df["builder"] == builder]
+        pct5 = (bslice["total_score"] == 5).mean() * 100
+        pct1 = (bslice["total_score"] == 1).mean() * 100
+        dist_lines.append(f"{builder}: {pct5:.0f}% five-star, {pct1:.0f}% one-star")
+    commentary(
+        "The shape of each distribution tells a different story. "
+        + " · ".join(dist_lines)
+        + ". Builders with a heavier concentration at the extremes (high 5-star and notable 1-star shares) "
+        "tend to have more polarized customer experiences, while a tighter cluster around 4–5 stars "
+        "indicates more consistent delivery."
+    )
+
+    # 6.3 Rating Dimensions
+    section_header("6.3 Rating Dimensions")
+    explain(
+        "Each review on NewHomeSource includes sub-ratings for Quality, Trustworthiness, Value, and "
+        "Responsiveness. Comparing these dimensions across builders reveals where each company's "
+        "relative strengths and weaknesses lie. A builder may score well overall but trail on a "
+        "specific dimension that matters to buyers."
+    )
 
     dims = ["quality", "trustworthiness", "value", "responsiveness"]
     dim_means = all_df.groupby("builder")[dims].mean()
@@ -108,12 +154,19 @@ def render(df, fdf, page):
         best_b, best_v = col_vals.index[0], col_vals.iloc[0]
         worst_b, worst_v = col_vals.index[-1], col_vals.iloc[-1]
         commentary_lines.append(
-            f"<b>{d.title()}</b>: {best_b} leads ({best_v:.2f}), {worst_b} trails ({worst_v:.2f})"
+            f"{d.title()}: {best_b} leads ({best_v:.2f}), {worst_b} trails ({worst_v:.2f})"
         )
     commentary(" · ".join(commentary_lines))
 
-    # 7.4 Sentiment Comparison
-    section_header("Sentiment Analysis")
+    # 6.4 Sentiment Comparison
+    section_header("6.4 Sentiment Analysis")
+    explain(
+        "Star ratings capture what customers scored; sentiment analysis captures how they wrote about "
+        "it. Using the VADER compound score (ranging from -1 to +1), this section compares the average "
+        "sentiment of each builder's review text and breaks reviews into Positive, Neutral, and "
+        "Negative categories. Differences between star ratings and sentiment can reveal builders whose "
+        "customers write more positively (or negatively) than their numeric scores alone suggest."
+    )
 
     sent_summary = all_df.groupby("builder").agg(
         avg_vader=("vader_compound", "mean"),
@@ -153,8 +206,25 @@ def render(df, fdf, page):
         clean_fig(fig, 350)
         st.plotly_chart(fig, use_container_width=True)
 
-    # 7.5 trends over time
-    section_header("Trends Over Time")
+    sent_best = sent_summary.index[0]
+    sent_best_score = sent_summary.loc[sent_best, "avg_vader"]
+    sent_worst = sent_summary.index[-1]
+    sent_worst_neg = sent_summary.loc[sent_worst, "pct_negative"]
+    commentary(
+        f"{sent_best} leads in average sentiment ({sent_best_score:.3f}), consistent with its strong "
+        f"star rating performance. {sent_worst} has the highest share of negative-sentiment reviews "
+        f"at {sent_worst_neg:.1f}%. Notably, the sentiment rankings largely mirror the star rating "
+        f"rankings, reinforcing that the written feedback aligns with the numeric scores across builders."
+    )
+
+    # 6.5 trends over time
+    section_header("6.5 Trends Over Time")
+    explain(
+        "This section tracks how each builder's review volume, average rating, and average sentiment "
+        "have changed over time on a quarterly basis. Trends can reveal whether a builder is improving, "
+        "declining, or holding steady, and whether changes in satisfaction coincide with shifts in "
+        "review volume."
+    )
 
     all_df_t = all_df.dropna(subset=["date"]).copy()
     all_df_t["quarter"] = all_df_t["date"].dt.to_period("Q").astype(str)
@@ -203,8 +273,21 @@ def render(df, fdf, page):
     clean_fig(fig, 750)
     st.plotly_chart(fig, use_container_width=True)
 
-    # 7.6 Geographic footprint
-    section_header("Geographic Footprint")
+    commentary(
+        "Review volume peaked during the 2021–2022 housing boom for most builders and has declined "
+        "since. Average ratings and sentiment show some quarter-to-quarter variability but remain "
+        "relatively stable over time. Quarters with very few reviews can produce noisy averages, "
+        "so the trends are most meaningful where volume is consistent."
+    )
+
+    # 6.6 Geographic footprint
+    section_header("6.6 Geographic Footprint")
+    explain(
+        "Since Shea Homes operates in specific states, this section narrows the comparison to only "
+        "those markets. Comparing review volume, average rating, and average sentiment by state "
+        "shows how builders stack up in the geographies where Shea actually competes, rather than "
+        "across their entire national footprint."
+    )
 
     geo = all_df.dropna(subset=["state"]).groupby(["state", "builder"]).agg(
         reviews=("total_score", "size"),
@@ -253,8 +336,28 @@ def render(df, fdf, page):
     clean_fig(fig, 420)
     st.plotly_chart(fig, use_container_width=True)
 
-    # 7.7 distinctive language
-    section_header("Distinctive Language by Builder")
+    # find best builder per state for commentary
+    geo_best_lines = []
+    for state in shea_states:
+        state_data = geo[geo["state"] == state]
+        if not state_data.empty:
+            best_in_state = state_data.loc[state_data["avg_rating"].idxmax()]
+            geo_best_lines.append(f"{state}: {best_in_state['builder']} ({best_in_state['avg_rating']:.2f})")
+    commentary(
+        f"Across the {len(shea_states)} Shea markets, the competitive picture varies by state. "
+        f"Highest-rated builder per state - {'; '.join(geo_best_lines)}. "
+        f"Review volume also differs substantially: larger sample sizes in states like CA and AZ "
+        f"produce more reliable comparisons, while states with fewer reviews should be interpreted cautiously."
+    )
+
+    # 6.7 distinctive language
+    section_header("6.7 Distinctive Language by Builder")
+    explain(
+        "What do customers talk about that is unique to each builder? Using TF-IDF (Term Frequency–"
+        "Inverse Document Frequency), this analysis identifies words and phrases that appear more "
+        "frequently in one builder's reviews relative to the overall average. Builder name tokens are "
+        "excluded so the results reflect substantive topics rather than brand mentions."
+    )
 
     tfidf = TfidfVectorizer(
         max_features=TFIDF_MAX_FEATURES, stop_words="english",
@@ -299,8 +402,22 @@ def render(df, fdf, page):
         with cols[idx % 2]:
             st.plotly_chart(fig, use_container_width=True)
 
-    # 7.8 Review Length & Engagement
-    section_header("Review Length and Engagement")
+    commentary(
+        "The distinctive terms reveal what topics dominate each builder's customer conversation. "
+        "Terms related to specific community features, construction elements, or service interactions "
+        "highlight the aspects of the homebuying experience that customers associate most strongly "
+        "with each brand. These language signals complement the numeric ratings by showing what "
+        "customers are actually writing about."
+    )
+
+    # 6.8 Review Length & Engagement
+    section_header("6.8 Review Length and Engagement")
+    explain(
+        "Review length can be a proxy for customer engagement. Longer reviews often indicate stronger "
+        "feelings (positive or negative). This section compares the distribution of review word counts "
+        "across builders and examines whether the relationship between star rating and review length "
+        "differs by builder."
+    )
 
     col1, col2 = st.columns(2)
     with col1:
@@ -334,24 +451,38 @@ def render(df, fdf, page):
         clean_fig(fig, 400)
         st.plotly_chart(fig, use_container_width=True)
 
-    # 7.9 Summary
-    section_header("Summary")
+    # compute engagement commentary
+    avg_wc = all_df.groupby("builder")["word_count"].mean().sort_values(ascending=False)
+    longest_b = avg_wc.index[0]
+    longest_wc = avg_wc.iloc[0]
+    shortest_b = avg_wc.index[-1]
+    shortest_wc = avg_wc.iloc[-1]
+    commentary(
+        f"{longest_b} customers write the longest reviews on average ({longest_wc:.0f} words), "
+        f"while {shortest_b} reviews are the shortest ({shortest_wc:.0f} words). Across all builders, "
+        f"lower star ratings tend to produce longer reviews — dissatisfied customers invest more effort "
+        f"in describing their experience. This pattern is consistent with the engagement dynamics "
+        f"observed in Part 1 for Shea Homes alone."
+    )
+
+    # 6.9 Summary
+    section_header("6.9 Summary")
 
     best_builder = summary.index[0]
     best_avg = summary.loc[best_builder, "avg_rating"]
     lowest_neg_b = sent_summary["pct_negative"].idxmin()
 
-    finding(
-        f"<b>Key takeaways:</b><br>"
-        f"1. <b>Overall positioning:</b> {best_builder} leads with a {best_avg:.2f} average rating; "
+    commentary(
+        f"Key takeaways:<br>"
+        f"1. Overall positioning: {best_builder} leads with a {best_avg:.2f} average rating; "
         f"Lennar trails with the highest at-risk rate.<br>"
-        f"2. <b>Dimensional strengths:</b> Each builder shows a distinct profile across quality, trust, "
-        f"value, and responsiveness — no single builder dominates every dimension.<br>"
-        f"3. <b>Sentiment patterns:</b> {lowest_neg_b} has the lowest share of negative reviews, "
+        f"2. Dimensional strengths: Each builder shows a distinct profile across quality, trust, "
+        f"value, and responsiveness, no single builder dominates every dimension.<br>"
+        f"3. Sentiment patterns: {lowest_neg_b} has the lowest share of negative reviews, "
         f"suggesting stronger language-level satisfaction even beyond star ratings.<br>"
-        f"4. <b>Geographic overlap:</b> {len(shea_states)} Shea markets compared head-to-head "
+        f"4. Geographic overlap: {len(shea_states)} Shea markets compared head-to-head "
         f"on ratings and sentiment.<br>"
-        f"5. <b>Language signals:</b> TF-IDF distinctive terms reveal what topics and phrases "
+        f"5. Language signals: TF-IDF distinctive terms reveal what topics and phrases "
         f"are unique to each builder's customer base.<br><br>"
         f"The full Shea Homes deep-dive (sentiment, topic modeling, predictive classification, "
         f"LLM analysis) is covered in Parts 1–5."
