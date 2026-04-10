@@ -45,15 +45,78 @@ The same NLP pipeline run on KB Home (~11K reviews), Lennar (~20K reviews), and 
 
 | Component | Tools |
 |---|---|
-| Data Collection | Python, BeautifulSoup, requests |
+| Data Collection | Python, Playwright, BeautifulSoup |
 | Data Processing | pandas, NumPy |
 | Sentiment Analysis | VADER (NLTK), TextBlob |
 | Topic Modeling | scikit-learn (TF-IDF, LDA) |
 | ML Classification | scikit-learn (Logistic Regression, Random Forest, Gradient Boosting) |
+| NER | spaCy (en_core_web_sm) |
 | LLM Analysis | Ollama, LLaMA 3.2 |
-| Visualization | Matplotlib, Seaborn, Plotly |
+| Visualization | Plotly |
 | Dashboard | Streamlit |
+| Testing | pytest |
 | Deployment | Streamlit Community Cloud |
+
+## Project Structure
+
+```
+├── streamlit_app.py              # Main Streamlit entry point
+├── train_models.py               # ML model training script
+├── requirements.txt
+│
+├── views/                        # Streamlit page modules
+│   ├── overview.py               # Introduction
+│   ├── summary_stats.py          # Part 1: Summary Statistics
+│   ├── data_evaluation.py        # Part 2: Data Evaluation
+│   ├── sentiment_analysis.py     # Part 3: Sentiment Analysis
+│   ├── advanced_nlp.py           # Part 4: Advanced NLP
+│   ├── predictive_models.py      # Part 5: Predictive Models
+│   ├── builder_comparison.py     # Part 6: Builder Comparison
+│   ├── conclusion.py             # Conclusion
+│   ├── live_prediction.py        # Tool: Live Prediction
+│   └── review_explorer.py        # Tool: Review Explorer
+│
+├── utils/
+│   ├── config.py                 # Colors, thresholds, page definitions, CSS
+│   ├── components.py             # Reusable UI components
+│   └── data.py                   # Data loading and processing
+│
+├── notebooks/                    # Jupyter notebooks (analysis development)
+│   ├── 01_setup_and_summary_stats.ipynb
+│   ├── 02_data_evaluation.ipynb
+│   ├── 03_sentiment_analysis.ipynb
+│   ├── 04_advanced_nlp.ipynb
+│   ├── 05_predictive_models.ipynb
+│   ├── 06_llm_analysis.ipynb
+│   └── 07_competitor_comparison.ipynb
+│
+├── scrapers/
+│   └── review_scraper.py         # NewHomeSource review scraper
+│
+├── builder_reviews/              # Review CSVs (one per builder)
+│   ├── shea-homes_reviews.csv
+│   ├── kb-home_reviews.csv
+│   ├── lennar_reviews.csv
+│   └── pulte-homes_reviews.csv
+│
+├── models/                       # Trained model artifacts (.joblib)
+│   ├── metadata.joblib
+│   ├── binary_tfidf.joblib
+│   ├── three_class_tfidf.joblib
+│   ├── binary_logistic_regression.joblib
+│   ├── binary_random_forest.joblib
+│   ├── binary_gradient_boosting.joblib
+│   ├── three_logistic_regression.joblib
+│   ├── three_random_forest.joblib
+│   └── three_gradient_boosting.joblib
+│
+└── tests/                        # pytest test suite
+    ├── conftest.py
+    ├── test_config.py
+    ├── test_data.py
+    ├── test_nlp.py
+    └── test_predictions.py
+```
 
 ## How to Run
 
@@ -65,13 +128,15 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-**Jupyter Notebook:**
+**Jupyter Notebooks:**
 ```bash
 pip install -r requirements.txt
-jupyter notebook SheaHomesCustomerReviewAnalysis.ipynb
+jupyter notebook notebooks/
 ```
 
-Note: The LLM analysis section (Layer 4) requires [Ollama](https://ollama.com/) installed locally with the LLaMA 3.2 model pulled (`ollama pull llama3.2`). All other sections run with standard Python packages.
+The notebooks are numbered 01–07 and follow the same sequence as the Streamlit app. Each notebook can be run independently.
+
+Note: The LLM analysis notebook (`06_llm_analysis.ipynb`) requires [Ollama](https://ollama.com/) installed locally with the LLaMA 3.2 model pulled (`ollama pull llama3.2`). All other notebooks and the Streamlit app run with standard Python packages.
 
 ## Refreshing the Data
 
@@ -79,7 +144,7 @@ The dataset is a static CSV snapshot. To pull the latest reviews and retrain the
 
 ```bash
 # 1. Re-scrape reviews from NewHomeSource.com
-python scrapers/all_review_scraper.py
+python scrapers/review_scraper.py
 
 # 2. Retrain the ML models on the updated data
 python train_models.py
@@ -88,12 +153,17 @@ python train_models.py
 streamlit run streamlit_app.py
 ```
 
-The scraper writes to builder_reviews/. The training script reads from the same directory. The notebooks and Streamlit app both load data from there. The sidebar shows the latest review date and the CSV's last-modified timestamp.
+The scraper writes to `builder_reviews/`. The training script reads from the same directory. The notebooks and Streamlit app both load data from there.
+
+## Tests
+
+```bash
+pytest tests/
+```
 
 ## Data Source
 
 All reviews were scraped from builder profiles on [NewHomeSource.com](https://www.newhomesource.com/). The dataset contains verified homebuyer reviews including review text, star ratings, reviewer names, community names, and review dates across four builders: Shea Homes, KB Home, Lennar, and Pulte Homes. Only public display names were collected, no private or personally identifiable information.
-
 
 ## Author
 
