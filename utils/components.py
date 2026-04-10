@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from utils.config import SHEA_DARK, ANALYSIS_PAGES
 
 
@@ -37,17 +36,6 @@ def clean_fig(fig, height=400):
     fig.update_xaxes(showgrid=True, gridcolor="#f0f0f0")
     fig.update_yaxes(showgrid=True, gridcolor="#f0f0f0")
     return fig
-
-
-def scroll_to_top():
-    components.html(
-        """
-        <script>
-            window.parent.scrollTo({top: 0, behavior: 'smooth'});
-        </script>
-        """,
-        height=0,
-    )
 
 
 def nav_buttons(page):
